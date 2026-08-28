@@ -1,14 +1,12 @@
 import { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useFocusEffect } from 'expo-router';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { getAssignments, getCourses } from '../../storage/storage';
 import { Assignment, Course } from '../../types';
+import { colors, fonts, priorityColors } from '../../constants/theme';
 
-const PRIORITY_COLORS: Record<string, string> = {
-  Low: '#2ECC71',
-  Medium: '#F39C12',
-  High: '#E74C3C',
-};
+const PRIORITY_COLORS = priorityColors;
 
 export default function HomeScreen() {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
@@ -87,13 +85,13 @@ export default function HomeScreen() {
         </View>
         {/* Pending turns red if anything is overdue */}
         <View style={styles.statCard}>
-          <Text style={[styles.statNumber, overdue.length > 0 && { color: '#E74C3C' }]}>
+          <Text style={[styles.statNumber, overdue.length > 0 && { color: colors.danger }]}>
             {incomplete.length}
           </Text>
           <Text style={styles.statLabel}>Pending</Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={[styles.statNumber, highPriority.length > 0 && { color: '#E74C3C' }]}>
+          <Text style={[styles.statNumber, highPriority.length > 0 && { color: colors.danger }]}>
             {highPriority.length}
           </Text>
           <Text style={styles.statLabel}>High Priority</Text>
@@ -111,11 +109,14 @@ export default function HomeScreen() {
       {/* --- Overdue --- */}
       {overdue.length > 0 && (
         <View>
-          <Text style={styles.sectionTitle}>🚨 Overdue</Text>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="alert-circle" size={16} color={colors.danger} />
+            <Text style={styles.sectionTitle}>Overdue</Text>
+          </View>
           {overdue.map(item => {
             const course = getCourse(item.courseId);
             return (
-              <View key={item.id} style={[styles.card, { borderLeftColor: '#E74C3C' }]}>
+              <View key={item.id} style={[styles.card, { borderLeftColor: colors.danger }]}>
                 <View style={styles.cardContent}>
                   <Text style={styles.cardTitle}>{item.title}</Text>
                   <Text style={styles.cardCourse}>{course?.name}</Text>
@@ -132,16 +133,19 @@ export default function HomeScreen() {
 
       {/* --- Due This Week --- */}
       <View>
-        <Text style={styles.sectionTitle}>📅 Due This Week</Text>
+        <View style={styles.sectionHeader}>
+          <Ionicons name="calendar-outline" size={16} color={colors.slate} />
+          <Text style={styles.sectionTitle}>Due this week</Text>
+        </View>
         {upcoming.length === 0 ? (
-          <Text style={styles.emptySection}>Nothing due in the next 7 days 🎉</Text>
+          <Text style={styles.emptySection}>Nothing due in the next 7 days.</Text>
         ) : (
           upcoming.map(item => {
             const course = getCourse(item.courseId);
             const days = daysUntil(item.dueDate);
             const isUrgent = days <= 1;
             return (
-              <View key={item.id} style={[styles.card, { borderLeftColor: course?.color ?? '#ccc' }]}>
+              <View key={item.id} style={[styles.card, { borderLeftColor: course?.color ?? colors.muted }]}>
                 <View style={styles.cardContent}>
                   <Text style={styles.cardTitle}>{item.title}</Text>
                   <Text style={styles.cardCourse}>{course?.name}</Text>
@@ -161,11 +165,14 @@ export default function HomeScreen() {
       {/* --- High Priority --- */}
       {highPriority.length > 0 && (
         <View>
-          <Text style={styles.sectionTitle}>🔴 High Priority</Text>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="flag" size={15} color={colors.danger} />
+            <Text style={styles.sectionTitle}>High priority</Text>
+          </View>
           {highPriority.map(item => {
             const course = getCourse(item.courseId);
             return (
-              <View key={item.id} style={[styles.card, { borderLeftColor: '#E74C3C' }]}>
+              <View key={item.id} style={[styles.card, { borderLeftColor: colors.danger }]}>
                 <View style={styles.cardContent}>
                   <Text style={styles.cardTitle}>{item.title}</Text>
                   <Text style={styles.cardCourse}>{course?.name}</Text>
@@ -179,7 +186,10 @@ export default function HomeScreen() {
 
       {/* --- Your Courses --- */}
       <View>
-        <Text style={styles.sectionTitle}>🎓 Your Courses</Text>
+        <View style={styles.sectionHeader}>
+          <Ionicons name="school-outline" size={16} color={colors.slate} />
+          <Text style={styles.sectionTitle}>Your courses</Text>
+        </View>
         {courses.length === 0 ? (
           <Text style={styles.emptySection}>No courses added yet.</Text>
         ) : (
@@ -202,44 +212,40 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  container: { flex: 1, backgroundColor: colors.paper },
   statsRow: { flexDirection: 'row', gap: 10 },
   statCard: {
-    flex: 1, backgroundColor: '#fff', borderRadius: 12,
-    padding: 12, alignItems: 'center',
-    elevation: 2, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 4,
+    flex: 1, backgroundColor: colors.card, borderRadius: 12,
+    padding: 12, alignItems: 'center', borderWidth: 1, borderColor: colors.border,
   },
-  statNumber: { fontSize: 24, fontWeight: 'bold', color: '#222' },
-  statLabel: { fontSize: 11, color: '#888', marginTop: 2, textAlign: 'center' },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#333', marginBottom: 10 },
-  emptySection: { fontSize: 14, color: '#999', fontStyle: 'italic' },
+  statNumber: { fontSize: 24, fontFamily: fonts.mono, fontWeight: '700' as const, color: colors.slate },
+  statLabel: { fontSize: 11, color: colors.muted, marginTop: 2, textAlign: 'center' },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 },
+  sectionTitle: { fontSize: 16, fontFamily: fonts.display, color: colors.slate },
+  emptySection: { fontSize: 14, color: colors.muted, fontStyle: 'italic' },
   card: {
-    backgroundColor: '#fff', borderRadius: 12, padding: 14,
+    backgroundColor: colors.card, borderRadius: 10, padding: 14,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    borderLeftWidth: 5, marginBottom: 10,
-    elevation: 2, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 4,
+    borderLeftWidth: 3, marginBottom: 10,
   },
   cardContent: { flex: 1 },
-  cardTitle: { fontSize: 14, fontWeight: '600', color: '#222' },
-  cardCourse: { fontSize: 12, color: '#888', marginTop: 2 },
+  cardTitle: { fontSize: 14, fontWeight: '500' as const, color: colors.slate },
+  cardCourse: { fontSize: 12, color: colors.muted, marginTop: 2 },
   cardRight: { alignItems: 'flex-end', gap: 6 },
-  cardDate: { fontSize: 12, color: '#888' },
+  cardDate: { fontSize: 12, color: colors.muted, fontFamily: fonts.mono },
   dueBadge: {
-    fontSize: 11, fontWeight: '600', color: '#555',
-    backgroundColor: '#eee', paddingHorizontal: 8,
-    paddingVertical: 3, borderRadius: 10,
+    fontSize: 10, fontFamily: fonts.mono, color: colors.slate,
+    backgroundColor: colors.paper, paddingHorizontal: 8,
+    paddingVertical: 3, borderRadius: 4, borderWidth: 1, borderColor: colors.border,
   },
   dueBadgeUrgent: {
-    fontSize: 11, fontWeight: '600',
-    backgroundColor: '#FDECEA', color: '#E74C3C',
-    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10,
+    fontSize: 10, fontFamily: fonts.mono,
+    backgroundColor: '#FCEBEB', color: colors.danger,
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4,
   },
   priorityDot: { width: 8, height: 8, borderRadius: 4 },
   courseGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  courseChip: {
-    borderRadius: 12, padding: 14, minWidth: 140,
-    elevation: 2, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 4,
-  },
-  courseChipName: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  courseChipCount: { color: 'rgba(255,255,255,0.8)', fontSize: 12, marginTop: 4 },
+  courseChip: { borderRadius: 10, padding: 14, minWidth: 140 },
+  courseChipName: { color: '#fff', fontFamily: fonts.display, fontSize: 14 },
+  courseChipCount: { color: 'rgba(255,255,255,0.85)', fontSize: 12, marginTop: 4, fontFamily: fonts.mono },
 });

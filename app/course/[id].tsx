@@ -6,12 +6,11 @@ import { getCourses, getAssignments, saveAssignment,
          deleteAssignment, toggleAssignment, updateAssignment, updateCourse, deleteCourse } from '../../storage/storage';
 import { Course, Assignment } from '../../types';
 import DatePickerField from '../../components/DatePickerField';
-
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { colors, fonts, priorityColors } from '../../constants/theme';
 
 const PRIORITIES = ['Low', 'Medium', 'High'] as const;
-const PRIORITY_COLORS: Record<string, string> = {
-  Low: '#2ECC71', Medium: '#F39C12', High: '#E74C3C',
-};
+const PRIORITY_COLORS = priorityColors;
 const COLORS = ['#4A90E2', '#E74C3C', '#2ECC71', '#F39C12', '#9B59B6', '#1ABC9C'];
 
 export default function CourseDetailScreen() {
@@ -148,10 +147,11 @@ export default function CourseDetailScreen() {
           {/* Edit and delete buttons */}
           <View style={styles.bannerActions}>
             <TouchableOpacity onPress={openCourseModal} style={styles.bannerBtn}>
-              <Text style={styles.bannerBtnText}>✏️ Edit</Text>
+              <Ionicons name="pencil" size={13} color="#fff" />
+              <Text style={styles.bannerBtnText}>Edit</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={handleDeleteCourse} style={styles.bannerBtnDanger}>
-              <Text style={styles.bannerBtnText}>🗑️</Text>
+              <Ionicons name="trash" size={14} color="#fff" />
             </TouchableOpacity>
           </View>
         </View>
@@ -198,11 +198,18 @@ export default function CourseDetailScreen() {
                     <Text style={styles.badgeText}>{item.priority}</Text>
                   </View>
                 </View>
-                <Text style={styles.cardDate}>📅 {item.dueDate}</Text>
+                <View style={styles.cardDateRow}>
+                  <Ionicons name="calendar-outline" size={12} color={colors.muted} />
+                  <Text style={styles.cardDate}>{item.dueDate}</Text>
+                </View>
                 {item.notes ? <Text style={styles.cardNotes}>{item.notes}</Text> : null}
               </View>
               <TouchableOpacity onPress={() => handleToggle(item.id)}>
-                <Text style={styles.checkmark}>{item.completed ? '✅' : '⬜'}</Text>
+                <Ionicons
+                  name={item.completed ? 'checkmark-circle' : 'ellipse-outline'}
+                  size={22}
+                  color={item.completed ? colors.success : colors.muted}
+                />
               </TouchableOpacity>
             </TouchableOpacity>
           )}
@@ -301,59 +308,57 @@ function TextInputField({ placeholder, value, onChangeText, multiline }: {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  container: { flex: 1, backgroundColor: colors.paper },
   banner: { padding: 20, paddingTop: 24, paddingBottom: 20 },
   bannerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
-  bannerName: { fontSize: 22, fontWeight: 'bold', color: '#fff' },
+  bannerName: { fontSize: 22, fontFamily: fonts.display, color: '#fff' },
   bannerProfessor: { fontSize: 14, color: 'rgba(255,255,255,0.8)', marginTop: 2 },
   bannerActions: { flexDirection: 'row', gap: 8 },
-  bannerBtn: { backgroundColor: 'rgba(255,255,255,0.25)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
-  bannerBtnDanger: { backgroundColor: 'rgba(0,0,0,0.15)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
-  bannerBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' },
+  bannerBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.25)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
+  bannerBtnDanger: { backgroundColor: 'rgba(0,0,0,0.15)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20 },
+  bannerBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' as const },
   bannerStats: { flexDirection: 'row', gap: 24 },
   bannerStat: { alignItems: 'center' },
-  bannerStatNum: { fontSize: 22, fontWeight: 'bold', color: '#fff' },
+  bannerStatNum: { fontSize: 22, fontFamily: fonts.mono, fontWeight: '700' as const, color: '#fff' },
   bannerStatLabel: { fontSize: 11, color: 'rgba(255,255,255,0.8)', marginTop: 2 },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  emptyText: { fontSize: 18, fontWeight: 'bold', color: '#555' },
-  emptySubText: { fontSize: 14, color: '#999', marginTop: 6 },
+  emptyText: { fontSize: 18, fontFamily: fonts.display, color: colors.slate },
+  emptySubText: { fontSize: 14, color: colors.muted, marginTop: 6 },
   card: {
-    backgroundColor: '#fff', borderRadius: 12,
+    backgroundColor: colors.card, borderRadius: 10,
     flexDirection: 'row', alignItems: 'center',
-    overflow: 'hidden', elevation: 2,
-    shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 4,
+    overflow: 'hidden', borderWidth: 1, borderColor: colors.border,
   },
-  cardDone: { opacity: 0.5 },
+  cardDone: { opacity: 0.55 },
   cardContent: { flex: 1, padding: 14 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  cardTitle: { fontSize: 15, fontWeight: '600', color: '#222', flex: 1 },
-  cardTitleDone: { textDecorationLine: 'line-through', color: '#999' },
-  cardDate: { fontSize: 12, color: '#555' },
-  cardNotes: { fontSize: 12, color: '#777', marginTop: 4, fontStyle: 'italic' },
+  cardTitle: { fontSize: 15, fontWeight: '500' as const, color: colors.slate, flex: 1 },
+  cardTitleDone: { textDecorationLine: 'line-through', color: colors.muted },
+  cardDateRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  cardDate: { fontSize: 12, color: colors.muted, fontFamily: fonts.mono },
+  cardNotes: { fontSize: 12, color: colors.muted, marginTop: 4, fontStyle: 'italic' },
   badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, marginLeft: 8 },
-  badgeText: { color: '#fff', fontSize: 11, fontWeight: '600' },
-  checkmark: { fontSize: 20, marginRight: 12 },
+  badgeText: { color: '#fff', fontSize: 11, fontWeight: '600' as const },
   fab: {
     position: 'absolute', bottom: 24, right: 24,
     width: 56, height: 56, borderRadius: 28,
     alignItems: 'center', justifyContent: 'center',
-    elevation: 4, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 6,
   },
   fabText: { color: '#fff', fontSize: 28, lineHeight: 32 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-  modalBox: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40 },
-  modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 16, color: '#222' },
-  input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 10, padding: 12, fontSize: 15, marginBottom: 12, backgroundColor: '#fafafa' },
-  label: { fontSize: 14, color: '#555', marginBottom: 8 },
+  modalBox: { backgroundColor: colors.paper, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40 },
+  modalTitle: { fontSize: 19, fontFamily: fonts.display, marginBottom: 16, color: colors.slate },
+  input: { borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 12, fontSize: 15, marginBottom: 12, backgroundColor: colors.card },
+  label: { fontSize: 13, color: colors.muted, marginBottom: 8 },
   priorityRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
   priorityBtn: { flex: 1, padding: 10, borderRadius: 10, borderWidth: 1.5, alignItems: 'center' },
-  priorityText: { fontSize: 13, fontWeight: '600', color: '#444' },
+  priorityText: { fontSize: 13, fontWeight: '600' as const, color: colors.slate },
   colorRow: { flexDirection: 'row', gap: 12, marginBottom: 20 },
   colorCircle: { width: 32, height: 32, borderRadius: 16 },
-  colorCircleSelected: { borderWidth: 3, borderColor: '#222' },
+  colorCircleSelected: { borderWidth: 3, borderColor: colors.slate },
   modalButtons: { flexDirection: 'row', gap: 12 },
-  cancelBtn: { flex: 1, padding: 14, borderRadius: 10, borderWidth: 1, borderColor: '#ddd', alignItems: 'center' },
-  cancelText: { color: '#555', fontSize: 15 },
-  saveBtn: { flex: 1, padding: 14, borderRadius: 10, backgroundColor: '#4A90E2', alignItems: 'center' },
-  saveText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  cancelBtn: { flex: 1, padding: 14, borderRadius: 10, borderWidth: 1, borderColor: colors.border, alignItems: 'center' },
+  cancelText: { color: colors.muted, fontSize: 15 },
+  saveBtn: { flex: 1, padding: 14, borderRadius: 10, backgroundColor: colors.ink, alignItems: 'center' },
+  saveText: { color: colors.paper, fontSize: 15, fontWeight: '600' as const },
 });

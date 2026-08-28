@@ -1,4 +1,5 @@
 import { Stack } from 'expo-router';
+import { colors, fonts } from '../constants/theme';
 
 // Root layout — a Stack navigator that wraps everything
 // The tabs group sits inside it, and detail screens slide on top
@@ -13,9 +14,9 @@ export default function RootLayout() {
         name="course/[id]"
         options={{
           title: 'Course Detail',
-          headerStyle: { backgroundColor: '#4A90E2' },
-          headerTintColor: '#fff',
-          headerTitleStyle: { fontWeight: 'bold' },
+          headerStyle: { backgroundColor: colors.ink },
+          headerTintColor: colors.paper,
+          headerTitleStyle: { fontFamily: fonts.display, fontWeight: '400' as const },
         }}
       />
     </Stack>

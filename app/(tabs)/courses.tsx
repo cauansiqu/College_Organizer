@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, FlatList, Modal, TextInput, A
 import { useRouter } from 'expo-router';
 import { getCourses, saveCourse, deleteCourse } from '../../storage/storage';
 import { Course } from '../../types';
+import { colors, fonts } from '../../constants/theme';
 
 const COLORS = ['#4A90E2', '#E74C3C', '#2ECC71', '#F39C12', '#9B59B6', '#1ABC9C'];
 
@@ -137,39 +138,37 @@ export default function CoursesScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  container: { flex: 1, backgroundColor: colors.paper },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  emptyText: { fontSize: 18, fontWeight: 'bold', color: '#555' },
-  emptySubText: { fontSize: 14, color: '#999', marginTop: 6 },
+  emptyText: { fontSize: 18, fontFamily: fonts.display, color: colors.slate },
+  emptySubText: { fontSize: 14, color: colors.muted, marginTop: 6 },
   card: {
-    backgroundColor: '#fff', borderRadius: 12, padding: 16,
+    backgroundColor: colors.card, borderRadius: 10, padding: 16,
     flexDirection: 'row', alignItems: 'center',
-    borderLeftWidth: 5, elevation: 2,
-    shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 4,
+    borderLeftWidth: 3, borderWidth: 1, borderColor: colors.border, borderLeftColor: colors.border,
   },
   colorDot: { width: 12, height: 12, borderRadius: 6, marginRight: 12 },
   cardText: { flex: 1 },
-  courseName: { fontSize: 16, fontWeight: '600', color: '#222' },
-  professor: { fontSize: 13, color: '#777', marginTop: 2 },
-  chevron: { fontSize: 22, color: '#ccc', marginLeft: 8 },
+  courseName: { fontSize: 16, fontFamily: fonts.display, color: colors.slate },
+  professor: { fontSize: 13, color: colors.muted, marginTop: 2 },
+  chevron: { fontSize: 22, color: colors.muted, marginLeft: 8 },
   fab: {
     position: 'absolute', bottom: 24, right: 24,
-    backgroundColor: '#4A90E2', width: 56, height: 56,
+    backgroundColor: colors.ink, width: 56, height: 56,
     borderRadius: 28, alignItems: 'center', justifyContent: 'center',
-    elevation: 4, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 6,
   },
-  fabText: { color: '#fff', fontSize: 28, lineHeight: 32 },
+  fabText: { color: colors.amber, fontSize: 28, lineHeight: 32 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-  modalBox: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40 },
-  modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 16, color: '#222' },
-  input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 10, padding: 12, fontSize: 15, marginBottom: 12, backgroundColor: '#fafafa' },
-  colorLabel: { fontSize: 14, color: '#555', marginBottom: 8 },
+  modalBox: { backgroundColor: colors.paper, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40 },
+  modalTitle: { fontSize: 19, fontFamily: fonts.display, marginBottom: 16, color: colors.slate },
+  input: { borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 12, fontSize: 15, marginBottom: 12, backgroundColor: colors.card },
+  colorLabel: { fontSize: 13, color: colors.muted, marginBottom: 8 },
   colorRow: { flexDirection: 'row', gap: 12, marginBottom: 20 },
   colorCircle: { width: 32, height: 32, borderRadius: 16 },
-  colorCircleSelected: { borderWidth: 3, borderColor: '#222' },
+  colorCircleSelected: { borderWidth: 3, borderColor: colors.slate },
   modalButtons: { flexDirection: 'row', gap: 12 },
-  cancelBtn: { flex: 1, padding: 14, borderRadius: 10, borderWidth: 1, borderColor: '#ddd', alignItems: 'center' },
-  cancelText: { color: '#555', fontSize: 15 },
-  saveBtn: { flex: 1, padding: 14, borderRadius: 10, backgroundColor: '#4A90E2', alignItems: 'center' },
-  saveText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  cancelBtn: { flex: 1, padding: 14, borderRadius: 10, borderWidth: 1, borderColor: colors.border, alignItems: 'center' },
+  cancelText: { color: colors.muted, fontSize: 15 },
+  saveBtn: { flex: 1, padding: 14, borderRadius: 10, backgroundColor: colors.ink, alignItems: 'center' },
+  saveText: { color: colors.paper, fontSize: 15, fontWeight: '600' as const },
 });

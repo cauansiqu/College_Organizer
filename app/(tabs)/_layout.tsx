@@ -2,17 +2,18 @@ import { Tabs } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { colors, fonts } from '../../constants/theme';
 
 export default function Layout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#4A90E2',
-        tabBarInactiveTintColor: '#999',
-        tabBarStyle: { backgroundColor: '#fff' },
-        headerStyle: { backgroundColor: '#4A90E2' },
-        headerTintColor: '#fff',
-        headerTitleStyle: { fontWeight: 'bold' },
+        tabBarActiveTintColor: colors.ink,
+        tabBarInactiveTintColor: colors.muted,
+        tabBarStyle: { backgroundColor: colors.card },
+        headerStyle: { backgroundColor: colors.ink },
+        headerTintColor: colors.paper,
+        headerTitleStyle: { fontFamily: fonts.display, fontWeight: '400' as const },
       }}
     >
       <Tabs.Screen
