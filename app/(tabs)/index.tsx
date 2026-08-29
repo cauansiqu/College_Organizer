@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { getAssignments, getCourses } from '../../storage/storage';
+import { parseLocalDate } from '@/utils/dates';
 import { Assignment, Course } from '../../types';
 import { colors, fonts, priorityColors } from '../../constants/theme';
 
@@ -40,13 +41,13 @@ export default function HomeScreen() {
 
   // Overdue: incomplete and due date is before today
   const overdue = incomplete
-    .filter(a => new Date(a.dueDate) < today)
+    .filter(a => parseLocalDate(a.dueDate) < today)
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
 
   // Due within the next 7 days (not overdue)
   const upcoming = incomplete
     .filter(a => {
-      const due = new Date(a.dueDate);
+      const due = parseLocalDate(a.dueDate);
       return due >= today && due <= in7Days;
     })
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
@@ -56,7 +57,6 @@ export default function HomeScreen() {
 
   function daysUntil(dateStr: string) {
     const due = new Date(dateStr);
-    due.setHours(0, 0, 0, 0);
     return Math.round((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
   }
 
@@ -68,7 +68,7 @@ export default function HomeScreen() {
   }
 
   function daysOverdueLabel(dateStr: string) {
-    const due = new Date(dateStr);
+    const due = parseLocalDate(dateStr);
     due.setHours(0, 0, 0, 0);
     const days = Math.round((today.getTime() - due.getTime()) / (1000 * 60 * 60 * 24));
     return `${days}d overdue`;

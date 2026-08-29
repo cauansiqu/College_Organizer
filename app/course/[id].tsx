@@ -1,15 +1,15 @@
 import { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity,
-         Alert, Modal, ScrollView, TextInput } from 'react-native';
+         Modal, TextInput } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { getCourses, getAssignments, saveAssignment,
          deleteAssignment, toggleAssignment, updateAssignment, updateCourse, deleteCourse } from '../../storage/storage';
 import { Course, Assignment } from '../../types';
-import DatePickerField from '../../components/DatePickerField';
+import AssignmentFormModal, { AssignmentFormValues } from '../../components/AssignmentFormModal';
+import { notify, confirmDestructive } from '../../utils/alerts';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors, fonts, priorityColors } from '../../constants/theme';
 
-const PRIORITIES = ['Low', 'Medium', 'High'] as const;
 const PRIORITY_COLORS = priorityColors;
 const COLORS = ['#4A90E2', '#E74C3C', '#2ECC71', '#F39C12', '#9B59B6', '#1ABC9C'];
 
@@ -23,10 +23,6 @@ export default function CourseDetailScreen() {
   // Assignment modal state
   const [assignModalVisible, setAssignModalVisible] = useState(false);
   const [editingAssignment, setEditingAssignment] = useState<Assignment | null>(null);
-  const [title, setTitle] = useState('');
-  const [dueDate, setDueDate] = useState('');
-  const [notes, setNotes] = useState('');
-  const [priority, setPriority] = useState<'Low' | 'Medium' | 'High'>('Medium');
 
   // Course edit modal state
   const [courseModalVisible, setCourseModalVisible] = useState(false);
@@ -49,37 +45,34 @@ export default function CourseDetailScreen() {
   // --- Assignment handlers ---
 
   function openAssignModal(assignment?: Assignment) {
-    if (assignment) {
-      setEditingAssignment(assignment);
-      setTitle(assignment.title);
-      setDueDate(assignment.dueDate);
-      setNotes(assignment.notes);
-      setPriority(assignment.priority);
-    } else {
-      setEditingAssignment(null);
-      setTitle(''); setDueDate(''); setNotes(''); setPriority('Medium');
-    }
+    setEditingAssignment(assignment ?? null);
     setAssignModalVisible(true);
   }
 
-  async function handleSaveAssignment() {
-    if (!title.trim()) { Alert.alert('Missing info', 'Please enter a title.'); return; }
-    if (!dueDate.trim()) { Alert.alert('Missing info', 'Please pick a due date.'); return; }
+  function closeAssignModal() {
+    setAssignModalVisible(false);
+    setEditingAssignment(null);
+  }
 
+  // Called by AssignmentFormModal once the form is valid and Save/Update is tapped.
+  // No course picker here — the course is always this page's `id`.
+  async function handleSaveAssignment(values: AssignmentFormValues) {
     if (editingAssignment) {
-      const updated: Assignment = { ...editingAssignment, title: title.trim(), dueDate, notes: notes.trim(), priority };
+      const updated: Assignment = { ...editingAssignment, ...values, courseId: id };
       await updateAssignment(updated);
       setAssignments(prev => prev.map(a => a.id === updated.id ? updated : a));
     } else {
       const newA: Assignment = {
-        id: Date.now().toString(), courseId: id,
-        title: title.trim(), dueDate, priority,
-        completed: false, notes: notes.trim(), description: '',
+        id: Date.now().toString(),
+        completed: false,
+        description: '',
+        ...values,
+        courseId: id,
       };
       await saveAssignment(newA);
       setAssignments(prev => [...prev, newA]);
     }
-    setAssignModalVisible(false);
+    closeAssignModal();
   }
 
   async function handleToggle(assignId: string) {
@@ -87,14 +80,12 @@ export default function CourseDetailScreen() {
     setAssignments(prev => prev.map(a => a.id === assignId ? { ...a, completed: !a.completed } : a));
   }
 
-  async function handleDeleteAssignment(assignId: string) {
-    Alert.alert('Delete Assignment', 'Are you sure?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => {
-        await deleteAssignment(assignId);
-        setAssignments(prev => prev.filter(a => a.id !== assignId));
-      }}
-    ]);
+  function handleDeleteAssignment(assignId: string) {
+    confirmDestructive('Delete Assignment', 'Are you sure?', 'Delete', async () => {
+      await deleteAssignment(assignId);
+      setAssignments(prev => prev.filter(a => a.id !== assignId));
+      closeAssignModal();
+    });
   }
 
   // --- Course edit/delete handlers ---
@@ -108,21 +99,18 @@ export default function CourseDetailScreen() {
   }
 
   async function handleSaveCourse() {
-    if (!courseName.trim()) { Alert.alert('Missing info', 'Please enter a course name.'); return; }
+    if (!courseName.trim()) { notify('Missing info', 'Please enter a course name.'); return; }
     const updated: Course = { ...course!, name: courseName.trim(), professor: courseProfessor.trim(), color: courseColor };
     await updateCourse(updated);
     setCourse(updated);
     setCourseModalVisible(false);
   }
 
-  async function handleDeleteCourse() {
-    Alert.alert('Delete Course', 'This will not delete your assignments. Are you sure?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => {
-        await deleteCourse(id);
-        router.back(); // go back to courses tab
-      }}
-    ]);
+  function handleDeleteCourse() {
+    confirmDestructive('Delete Course', 'This will not delete your assignments. Are you sure?', 'Delete', async () => {
+      await deleteCourse(id);
+      router.back(); // go back to courses tab
+    });
   }
 
   if (!course) return null;
@@ -222,38 +210,16 @@ export default function CourseDetailScreen() {
         <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
 
-      {/* Add/Edit Assignment Modal */}
-      <Modal visible={assignModalVisible} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <ScrollView contentContainerStyle={styles.modalBox}>
-            <Text style={styles.modalTitle}>{editingAssignment ? 'Edit Assignment' : 'Add Assignment'}</Text>
-            <TextInputField placeholder="Title" value={title} onChangeText={setTitle} />
-            <DatePickerField label="Due date:" value={dueDate} onChange={setDueDate} />
-            <TextInputField placeholder="Notes (optional)" value={notes} onChangeText={setNotes} multiline />
-            <Text style={styles.label}>Priority:</Text>
-            <View style={styles.priorityRow}>
-              {PRIORITIES.map(p => (
-                <TouchableOpacity
-                  key={p}
-                  style={[styles.priorityBtn, { borderColor: PRIORITY_COLORS[p] },
-                    priority === p && { backgroundColor: PRIORITY_COLORS[p] }]}
-                  onPress={() => setPriority(p)}
-                >
-                  <Text style={[styles.priorityText, priority === p && { color: '#fff' }]}>{p}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            <View style={styles.modalButtons}>
-              <TouchableOpacity onPress={() => setAssignModalVisible(false)} style={styles.cancelBtn}>
-                <Text style={styles.cancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={handleSaveAssignment} style={[styles.saveBtn, { backgroundColor: course.color }]}>
-                <Text style={styles.saveText}>{editingAssignment ? 'Update' : 'Save'}</Text>
-              </TouchableOpacity>
-            </View>
-          </ScrollView>
-        </View>
-      </Modal>
+      {/* Add/Edit Assignment — shared component, no course picker, tinted to this course's color */}
+      <AssignmentFormModal
+        visible={assignModalVisible}
+        editing={editingAssignment}
+        defaultCourseId={id}
+        accentColor={course.color}
+        onCancel={closeAssignModal}
+        onSave={handleSaveAssignment}
+        onDelete={editingAssignment ? () => handleDeleteAssignment(editingAssignment.id) : undefined}
+      />
 
       {/* Edit Course Modal */}
       <Modal visible={courseModalVisible} animationType="slide" transparent>
@@ -289,7 +255,7 @@ export default function CourseDetailScreen() {
   );
 }
 
-// Small helper component to avoid repeating TextInput styles
+// Small helper component to avoid repeating TextInput styles (used by the Course edit modal)
 function TextInputField({ placeholder, value, onChangeText, multiline }: {
   placeholder: string;
   value: string;
@@ -350,9 +316,6 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 19, fontFamily: fonts.display, marginBottom: 16, color: colors.slate },
   input: { borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 12, fontSize: 15, marginBottom: 12, backgroundColor: colors.card },
   label: { fontSize: 13, color: colors.muted, marginBottom: 8 },
-  priorityRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
-  priorityBtn: { flex: 1, padding: 10, borderRadius: 10, borderWidth: 1.5, alignItems: 'center' },
-  priorityText: { fontSize: 13, fontWeight: '600' as const, color: colors.slate },
   colorRow: { flexDirection: 'row', gap: 12, marginBottom: 20 },
   colorCircle: { width: 32, height: 32, borderRadius: 16 },
   colorCircleSelected: { borderWidth: 3, borderColor: colors.slate },

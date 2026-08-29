@@ -1,18 +1,19 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList,
-         Modal, TextInput, Alert, ScrollView, useWindowDimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, 
+          ScrollView, useWindowDimensions } from 'react-native';
 import { getAssignments, saveAssignment, deleteAssignment, toggleAssignment, updateAssignment, getCourses } from '../../storage/storage';
 import { Assignment, Course } from '../../types';
-import DatePickerField from '../../components/DatePickerField';
 import CalendarMonth from '../../components/CalendarMonth';
-import { colors, fonts, priorityColors } from '../../constants/theme';
+import { parseLocalDate } from '../../utils/dates';
+import { confirmDestructive } from '@/utils/alerts';
+import AssignmentFormModal, { AssignmentFormValues } from '../../components/AssignmentFormModal';
+import { colors, fonts } from '../../constants/theme';
 
-const PRIORITIES = ['Low', 'Medium', 'High'] as const;
 type SortMode = 'date' | 'priority';
 const PRIORITY_RANK: Record<string, number> = { High: 0, Medium: 1, Low: 2 };
 
 function daysUntil(dueDate: string) {
-  const due = new Date(dueDate.slice(0, 10) + 'T00:00:00');
+  const due = parseLocalDate(dueDate.slice(0, 10) + 'T00:00:00');
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const diff = Math.round((due.getTime() - today.getTime()) / 86400000);
@@ -29,20 +30,12 @@ export default function AssignmentsScreen() {
   const [editingAssignment, setEditingAssignment] = useState<Assignment | null>(null);
   const [sortMode, setSortMode] = useState<SortMode>('date');
 
-  // Form fields
-  const [title, setTitle] = useState('');
-  const [dueDate, setDueDate] = useState('');
-  const [notes, setNotes] = useState('');
-  const [selectedCourse, setSelectedCourse] = useState<string>('');
-  const [selectedPriority, setSelectedPriority] = useState<'Low' | 'Medium' | 'High'>('Medium');
-
   useEffect(() => { loadData(); }, []);
 
   async function loadData() {
     const [a, c] = await Promise.all([getAssignments(), getCourses()]);
     setAssignments(a);
     setCourses(c);
-    if (c.length > 0) setSelectedCourse(c[0].id);
   }
 
   function getCourse(courseId: string) {
@@ -50,53 +43,32 @@ export default function AssignmentsScreen() {
   }
 
   function openModal(assignment?: Assignment) {
-    if (assignment) {
-      setEditingAssignment(assignment);
-      setTitle(assignment.title);
-      setDueDate(assignment.dueDate);
-      setNotes(assignment.notes);
-      setSelectedCourse(assignment.courseId);
-      setSelectedPriority(assignment.priority);
-    } else {
-      setEditingAssignment(null);
-      resetForm();
-    }
+    setEditingAssignment(assignment ?? null);
     setModalVisible(true);
   }
 
-  async function handleSave() {
-    if (!title.trim()) { Alert.alert('Missing info', 'Please enter a title.'); return; }
-    if (!dueDate.trim()) { Alert.alert('Missing info', 'Please enter a due date (e.g. 2025-12-01).'); return; }
-    if (!selectedCourse) { Alert.alert('Missing info', 'Please add a course first.'); return; }
+  function closeModal() {
+    setModalVisible(false);
+    setEditingAssignment(null);
+  }
 
+  // Called by AssignmentFormModal once the form is valid and Save/Update is tapped
+  async function handleFormSave(values: AssignmentFormValues) {
     if (editingAssignment) {
-      const updated: Assignment = {
-        ...editingAssignment,
-        title: title.trim(),
-        dueDate: dueDate.trim(),
-        notes: notes.trim(),
-        courseId: selectedCourse,
-        priority: selectedPriority,
-      };
+      const updated: Assignment = { ...editingAssignment, ...values };
       await updateAssignment(updated);
       setAssignments(prev => prev.map(a => a.id === updated.id ? updated : a));
     } else {
       const newAssignment: Assignment = {
         id: Date.now().toString(),
-        courseId: selectedCourse,
-        title: title.trim(),
-        dueDate: dueDate.trim(),
-        priority: selectedPriority,
         completed: false,
-        notes: notes.trim(),
         description: '',
+        ...values,
       };
       await saveAssignment(newAssignment);
       setAssignments(prev => [...prev, newAssignment]);
     }
-
-    resetForm();
-    setModalVisible(false);
+    closeModal();
   }
 
   async function handleToggle(id: string) {
@@ -106,25 +78,12 @@ export default function AssignmentsScreen() {
     );
   }
 
-  async function handleDelete(id: string) {
-    Alert.alert('Delete Assignment', 'Are you sure?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete', style: 'destructive',
-        onPress: async () => {
-          await deleteAssignment(id);
-          setAssignments(prev => prev.filter(a => a.id !== id));
-        }
-      }
-    ]);
-  }
-
-  function resetForm() {
-    setTitle('');
-    setDueDate('');
-    setNotes('');
-    setSelectedPriority('Medium');
-    if (courses.length > 0) setSelectedCourse(courses[0].id);
+  function handleDelete(id: string) {
+    confirmDestructive('Delete Assignment', 'Are you sure?', 'Delete', async () => {
+      await deleteAssignment(id);
+      setAssignments(prev => prev.filter(a => a.id !== id));
+      closeModal();
+    });
   }
 
   const sorted = [...assignments].sort((a, b) => {
@@ -229,83 +188,14 @@ export default function AssignmentsScreen() {
         <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
 
-      <Modal visible={modalVisible} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <ScrollView contentContainerStyle={styles.modalBox}>
-            <Text style={styles.modalTitle}>
-              {editingAssignment ? 'Edit Assignment' : 'Add Assignment'}
-            </Text>
-
-            <TextInput
-              style={styles.input}
-              placeholder="Title (e.g. Chapter 5 Homework)"
-              value={title}
-              onChangeText={setTitle}
-            />
-            <DatePickerField
-              label="Due date:"
-              value={dueDate}
-              onChange={setDueDate}
-            />
-            <TextInput
-              style={[styles.input, { height: 80 }]}
-              placeholder="Notes (optional)"
-              value={notes}
-              onChangeText={setNotes}
-              multiline
-            />
-
-            <Text style={styles.label}>Course:</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
-              {courses.map(c => (
-                <TouchableOpacity
-                  key={c.id}
-                  style={[styles.chip, { borderColor: c.color },
-                    selectedCourse === c.id && { backgroundColor: c.color }]}
-                  onPress={() => setSelectedCourse(c.id)}
-                >
-                  <Text style={[styles.chipText,
-                    selectedCourse === c.id && { color: '#fff' }]}>
-                    {c.name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-
-            <Text style={styles.label}>Priority:</Text>
-            <View style={styles.priorityRow}>
-              {PRIORITIES.map(p => (
-                <TouchableOpacity
-                  key={p}
-                  style={[styles.priorityBtn,
-                    { borderColor: priorityColors[p] },
-                    selectedPriority === p && { backgroundColor: priorityColors[p] }]}
-                  onPress={() => setSelectedPriority(p)}
-                >
-                  <Text style={[styles.priorityText,
-                    selectedPriority === p && { color: '#fff' }]}>
-                    {p}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                onPress={() => { setModalVisible(false); resetForm(); }}
-                style={styles.cancelBtn}
-              >
-                <Text style={styles.cancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={handleSave} style={styles.saveBtn}>
-                <Text style={styles.saveText}>
-                  {editingAssignment ? 'Update' : 'Save'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </ScrollView>
-        </View>
-      </Modal>
+      <AssignmentFormModal
+        visible={modalVisible}
+        editing={editingAssignment}
+        courses={courses}
+        onCancel={closeModal}
+        onSave={handleFormSave}
+        onDelete={editingAssignment ? () => handleDelete(editingAssignment.id) : undefined}
+      />
     </View>
   );
 }
@@ -346,19 +236,4 @@ const styles = StyleSheet.create({
     borderRadius: 28, alignItems: 'center', justifyContent: 'center',
   },
   fabText: { color: colors.amber, fontSize: 28, lineHeight: 32 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-  modalBox: { backgroundColor: colors.paper, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40 },
-  modalTitle: { fontSize: 19, fontFamily: fonts.display, marginBottom: 16, color: colors.slate },
-  input: { borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 12, fontSize: 15, marginBottom: 12, backgroundColor: colors.card },
-  label: { fontSize: 13, color: colors.muted, marginBottom: 8 },
-  chip: { borderWidth: 1.5, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7, marginRight: 8 },
-  chipText: { fontSize: 13, color: colors.slate },
-  priorityRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
-  priorityBtn: { flex: 1, padding: 10, borderRadius: 10, borderWidth: 1.5, alignItems: 'center' },
-  priorityText: { fontSize: 13, fontWeight: '600' as const, color: colors.slate },
-  modalButtons: { flexDirection: 'row', gap: 12 },
-  cancelBtn: { flex: 1, padding: 14, borderRadius: 10, borderWidth: 1, borderColor: colors.border, alignItems: 'center' },
-  cancelText: { color: colors.muted, fontSize: 15 },
-  saveBtn: { flex: 1, padding: 14, borderRadius: 10, backgroundColor: colors.ink, alignItems: 'center' },
-  saveText: { color: colors.paper, fontSize: 15, fontWeight: '600' as const },
 });
