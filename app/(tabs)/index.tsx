@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { useFocusEffect, router } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { getAssignments, getCourses } from '../../storage/storage';
 import { parseLocalDate } from '@/utils/dates';
@@ -145,18 +145,32 @@ export default function HomeScreen() {
             const days = daysUntil(item.dueDate);
             const isUrgent = days <= 1;
             return (
-              <View key={item.id} style={[styles.card, { borderLeftColor: course?.color ?? colors.muted }]}>
+              <Pressable
+                key={item.id}
+                onPress={() => router.push('/assignments')}
+                style={({ pressed }) => [
+                  styles.card,
+                  { borderLeftColor: course?.color ?? colors.muted },
+                  pressed && styles.pressedCard,
+                ]}
+              >
                 <View style={styles.cardContent}>
                   <Text style={styles.cardTitle}>{item.title}</Text>
                   <Text style={styles.cardCourse}>{course?.name}</Text>
                 </View>
+
                 <View style={styles.cardRight}>
                   <Text style={[styles.dueBadge, isUrgent && styles.dueBadgeUrgent]}>
                     {dueDateLabel(item.dueDate)}
                   </Text>
-                  <View style={[styles.priorityDot, { backgroundColor: PRIORITY_COLORS[item.priority] }]} />
+                  <View
+                    style={[
+                      styles.priorityDot,
+                      { backgroundColor: PRIORITY_COLORS[item.priority] },
+                    ]}
+                  />
                 </View>
-              </View>
+              </Pressable>
             );
           })
         )}
@@ -197,10 +211,23 @@ export default function HomeScreen() {
             {courses.map(c => {
               const count = incomplete.filter(a => a.courseId === c.id).length;
               return (
-                <View key={c.id} style={[styles.courseChip, { backgroundColor: c.color }]}>
+                <Pressable
+                  key={c.id}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/course/[id]',
+                      params: { id: String(c.id) },
+                    })
+                  }
+                  style={({ pressed }) => [
+                    styles.courseChip,
+                    { backgroundColor: c.color },
+                    pressed && styles.pressedCourseChip,
+                  ]}
+                >
                   <Text style={styles.courseChipName}>{c.name}</Text>
                   <Text style={styles.courseChipCount}>{count} pending</Text>
-                </View>
+                </Pressable>
               );
             })}
           </View>
@@ -242,6 +269,14 @@ const styles = StyleSheet.create({
     fontSize: 10, fontFamily: fonts.mono,
     backgroundColor: '#FCEBEB', color: colors.danger,
     paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4,
+  },
+  pressedCard: {
+    opacity: 0.8,
+    transform: [{ scale: 0.99 }],
+  },
+  pressedCourseChip: {
+    opacity: 0.82,
+    transform: [{ scale: 0.98 }],
   },
   priorityDot: { width: 8, height: 8, borderRadius: 4 },
   courseGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },

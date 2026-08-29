@@ -7,6 +7,13 @@ const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!
 const supabasePublishableKey =
   process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
 
+if (!supabaseUrl) {
+  throw new Error('Missing EXPO_PUBLIC_SUPABASE_URL');
+}
+
+if (!supabasePublishableKey) {
+  throw new Error('Missing EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY');
+}
 // True only when we're running the "web" bundle but there's no real
 // browser window around — i.e. Expo Router's Node.js pre-render pass.
 // On native (iOS/Android), Platform.OS is never 'web', so this is

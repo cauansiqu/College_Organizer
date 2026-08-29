@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, 
           ScrollView, useWindowDimensions } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import { getAssignments, saveAssignment, deleteAssignment, toggleAssignment, updateAssignment, getCourses } from '../../storage/storage';
 import { Assignment, Course } from '../../types';
 import CalendarMonth from '../../components/CalendarMonth';
@@ -30,13 +31,17 @@ export default function AssignmentsScreen() {
   const [editingAssignment, setEditingAssignment] = useState<Assignment | null>(null);
   const [sortMode, setSortMode] = useState<SortMode>('date');
 
-  useEffect(() => { loadData(); }, []);
-
   async function loadData() {
     const [a, c] = await Promise.all([getAssignments(), getCourses()]);
     setAssignments(a);
     setCourses(c);
   }
+
+  useFocusEffect(
+      useCallback(() => {
+        loadData();
+      }, [])
+  );
 
   function getCourse(courseId: string) {
     return courses.find(c => c.id === courseId);
