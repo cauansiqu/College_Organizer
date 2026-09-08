@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  type-check-and-lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Downloads your repo's code onto the runner machine
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      # Installs Node.js on the runner, and caches npm packages between
+      # runs so future CI runs are faster
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+
+      # Installs your exact dependency versions from package-lock.json
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npx expo lint
+

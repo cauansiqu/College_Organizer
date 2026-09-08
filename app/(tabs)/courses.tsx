@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, Modal, TextInput, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, Modal, TextInput } from 'react-native';
 import { useRouter } from 'expo-router';
 import { getCourses, saveCourse, deleteCourse } from '../../storage/storage';
 import { Course } from '../../types';
 import { colors, fonts } from '../../constants/theme';
+import { notify, confirmDestructive } from '../../utils/alerts';
 
 const COLORS = ['#4A90E2', '#E74C3C', '#2ECC71', '#F39C12', '#9B59B6', '#1ABC9C'];
 
@@ -31,7 +32,7 @@ export default function CoursesScreen() {
 
   async function handleSave() {
     if (!name.trim()) {
-      Alert.alert('Missing info', 'Please enter a course name.');
+      notify('Missing info', 'Please enter a course name.');
       return;
     }
 
@@ -46,17 +47,11 @@ export default function CoursesScreen() {
     setModalVisible(false);
   }
 
-  async function handleDelete(id: string) {
-    Alert.alert('Delete Course', 'Are you sure?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete', style: 'destructive',
-        onPress: async () => {
-          await deleteCourse(id);
-          setCourses(prev => prev.filter(c => c.id !== id));
-        }
-      }
-    ]);
+  function handleDelete(id: string) {
+    confirmDestructive('Delete Course', 'Are you sure?', 'Delete', async () => {
+      await deleteCourse(id);
+      setCourses(prev => prev.filter(c => c.id !== id));
+    });
   }
 
   return (

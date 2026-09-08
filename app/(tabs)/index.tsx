@@ -186,13 +186,21 @@ export default function HomeScreen() {
           {highPriority.map(item => {
             const course = getCourse(item.courseId);
             return (
-              <View key={item.id} style={[styles.card, { borderLeftColor: colors.danger }]}>
+              <Pressable
+                key={item.id}
+                onPress={() => router.push('/assignments')}
+                style={({ pressed }) => [
+                  styles.card,
+                  { borderLeftColor: colors.danger },
+                  pressed && styles.pressedCard,
+                ]}
+              >
                 <View style={styles.cardContent}>
                   <Text style={styles.cardTitle}>{item.title}</Text>
                   <Text style={styles.cardCourse}>{course?.name}</Text>
                 </View>
                 <Text style={styles.cardDate}>{item.dueDate}</Text>
-              </View>
+              </Pressable>
             );
           })}
         </View>
