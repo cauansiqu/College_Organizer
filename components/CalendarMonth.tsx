@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { Assignment, Course } from '../types';
-import { colors, fonts } from '../constants/theme';
+import { colors, fonts, fadeColor } from '../constants/theme';
 
 const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
@@ -28,6 +28,13 @@ export default function CalendarMonth({ assignments, courses, onDayPress }: Prop
 
   const courseColor = (courseId: string) =>
     courses.find(c => c.id === courseId)?.color ?? colors.muted;
+
+  // Completed assignments get a lighter, desaturated version of their
+  // course color so they stay visible but visually de-emphasized.
+  const chipColor = (a: Assignment) => {
+    const base = courseColor(a.courseId);
+    return a.completed ? fadeColor(base) : base;
+  };
 
   // Map "YYYY-MM-DD" -> assignments due that day
   const byDay = useMemo(() => {
@@ -61,7 +68,7 @@ export default function CalendarMonth({ assignments, courses, onDayPress }: Prop
               <Text style={styles.weekDayLabel}>{WEEKDAY_LABELS[d.getDay()]}</Text>
               <Text style={styles.weekDateNum}>{d.getDate()}</Text>
               {items.slice(0, 1).map(a => (
-                <View key={a.id} style={[styles.weekChip, { backgroundColor: courseColor(a.courseId) }]} />
+                <View key={a.id} style={[styles.weekChip, { backgroundColor: chipColor(a) }]} />
               ))}
               {items.length > 1 && <Text style={styles.weekMore}>+{items.length - 1}</Text>}
             </TouchableOpacity>
@@ -118,8 +125,8 @@ export default function CalendarMonth({ assignments, courses, onDayPress }: Prop
             >
               <Text style={[styles.dayNum, isToday && styles.dayNumToday]}>{d.getDate()}</Text>
               {items.slice(0, 2).map(a => (
-                <View key={a.id} style={[styles.chip, { backgroundColor: courseColor(a.courseId) }]}>
-                  <Text style={styles.chipText} numberOfLines={1}>{a.title}</Text>
+                <View key={a.id} style={[styles.chip, { backgroundColor: chipColor(a) }]}>
+                  <Text style={[styles.chipText, a.completed && styles.chipTextDone]} numberOfLines={1}>{a.title}</Text>
                 </View>
               ))}
               {items.length > 2 && <Text style={styles.moreLabel}>+{items.length - 2} more</Text>}
@@ -149,6 +156,7 @@ const styles = StyleSheet.create({
   dayNumToday: { fontFamily: fonts.mono, fontWeight: '700' as const },
   chip: { borderRadius: 3, paddingHorizontal: 3, paddingVertical: 1, marginBottom: 1 },
   chipText: { fontSize: 9, color: '#fff' },
+  chipTextDone: { color: colors.slate },
   moreLabel: { fontSize: 8, color: colors.muted },
   weekStrip: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8 },
   weekCell: { alignItems: 'center', backgroundColor: colors.card, borderRadius: 8, padding: 8, width: 44 },

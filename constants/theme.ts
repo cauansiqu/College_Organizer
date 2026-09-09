@@ -27,3 +27,16 @@ export const priorityColors: Record<string, string> = {
   Medium: colors.warning,
   High: colors.danger,
 };
+
+// Blends a hex course color toward white to make a lighter, desaturated
+// version — used to de-emphasize completed assignments on the calendar
+// while keeping them identifiable by course.
+export function fadeColor(hex: string, amount = 0.6): string {
+  const num = parseInt(hex.replace('#', ''), 16);
+  const r = (num >> 16) & 255;
+  const g = (num >> 8) & 255;
+  const b = num & 255;
+  const mix = (channel: number) => Math.round(channel + (255 - channel) * amount);
+  const toHex = (channel: number) => channel.toString(16).padStart(2, '0');
+  return `#${toHex(mix(r))}${toHex(mix(g))}${toHex(mix(b))}`;
+}
