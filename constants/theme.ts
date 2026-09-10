@@ -31,12 +31,38 @@ export const priorityColors: Record<string, string> = {
 // Blends a hex course color toward white to make a lighter, desaturated
 // version — used to de-emphasize completed assignments on the calendar
 // while keeping them identifiable by course.
-export function fadeColor(hex: string, amount = 0.6): string {
+export function fadeColor(hex: string, amount = 0.7): string {
   const num = parseInt(hex.replace('#', ''), 16);
   const r = (num >> 16) & 255;
   const g = (num >> 8) & 255;
   const b = num & 255;
   const mix = (channel: number) => Math.round(channel + (255 - channel) * amount);
+  const toHex = (channel: number) => channel.toString(16).padStart(2, '0');
+  return `#${toHex(mix(r))}${toHex(mix(g))}${toHex(mix(b))}`;
+}
+
+// Blends a hex color toward white for a pale, tinted background — e.g. a
+// row or callout tinted by its course color. Same math as fadeColor, but a
+// separate function since fadeColor's use case (de-emphasizing completed
+// items) wants a different default amount than a light background tint.
+export function tintColor(hex: string, amount = 0.85): string {
+  const num = parseInt(hex.replace('#', ''), 16);
+  const r = (num >> 16) & 255;
+  const g = (num >> 8) & 255;
+  const b = num & 255;
+  const mix = (channel: number) => Math.round(channel + (255 - channel) * amount);
+  const toHex = (channel: number) => channel.toString(16).padStart(2, '0');
+  return `#${toHex(mix(r))}${toHex(mix(g))}${toHex(mix(b))}`;
+}
+
+// Blends a hex color toward black — used to darken a course color enough
+// to read as text on top of that same color's pale tinted background.
+export function darkenColor(hex: string, amount = 0.35): string {
+  const num = parseInt(hex.replace('#', ''), 16);
+  const r = (num >> 16) & 255;
+  const g = (num >> 8) & 255;
+  const b = num & 255;
+  const mix = (channel: number) => Math.round(channel * (1 - amount));
   const toHex = (channel: number) => channel.toString(16).padStart(2, '0');
   return `#${toHex(mix(r))}${toHex(mix(g))}${toHex(mix(b))}`;
 }

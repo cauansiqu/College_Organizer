@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { Assignment, Course } from '../types';
 import { colors, fonts, fadeColor } from '../constants/theme';
+import { toLocalISODate } from '../utils/dates';
 
 const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
@@ -11,13 +12,10 @@ type Props = {
   assignments: Assignment[];
   courses: Course[];
   onDayPress?: (dateISO: string) => void;
+  onAssignmentPress?: (assignment: Assignment) => void;
 };
 
-function toISODate(d: Date) {
-  return d.toISOString().slice(0, 10);
-}
-
-export default function CalendarMonth({ assignments, courses, onDayPress }: Props) {
+export default function CalendarMonth({ assignments, courses, onDayPress, onAssignmentPress }: Props) {
   const { width } = useWindowDimensions();
   const isNarrow = width < 700; // below this, a 7-col month grid gets too cramped
 
@@ -61,16 +59,29 @@ export default function CalendarMonth({ assignments, courses, onDayPress }: Prop
     return (
       <View style={styles.weekStrip}>
         {days.map(d => {
-          const key = toISODate(d);
+          const key = toLocalISODate(d);
           const items = byDay[key] ?? [];
           return (
-            <TouchableOpacity key={key} style={styles.weekCell} onPress={() => onDayPress?.(key)}>
+            <TouchableOpacity
+              key={key}
+              style={styles.weekCell}
+              onPress={() => { if (items.length > 0) onDayPress?.(key); }}
+            >
               <Text style={styles.weekDayLabel}>{WEEKDAY_LABELS[d.getDay()]}</Text>
               <Text style={styles.weekDateNum}>{d.getDate()}</Text>
               {items.slice(0, 1).map(a => (
-                <View key={a.id} style={[styles.weekChip, { backgroundColor: chipColor(a) }]} />
+                <TouchableOpacity
+                  key={a.id}
+                  style={[styles.weekChip, { backgroundColor: chipColor(a) }]}
+                  onPress={() => onAssignmentPress?.(a)}
+                  hitSlop={8}
+                />
               ))}
-              {items.length > 1 && <Text style={styles.weekMore}>+{items.length - 1}</Text>}
+              {items.length > 1 && (
+                <TouchableOpacity onPress={() => onDayPress?.(key)} hitSlop={8}>
+                  <Text style={styles.weekMore}>+{items.length - 1}</Text>
+                </TouchableOpacity>
+              )}
             </TouchableOpacity>
           );
         })}
@@ -89,7 +100,7 @@ export default function CalendarMonth({ assignments, courses, onDayPress }: Prop
   for (let i = 0; i < startWeekday; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(year, month, d));
 
-  const todayKey = toISODate(new Date());
+  const todayKey = toLocalISODate(new Date());
 
   return (
     <View>
@@ -114,22 +125,30 @@ export default function CalendarMonth({ assignments, courses, onDayPress }: Prop
       <View style={styles.grid}>
         {cells.map((d, i) => {
           if (!d) return <View key={i} style={styles.dayCellEmpty} />;
-          const key = toISODate(d);
+          const key = toLocalISODate(d);
           const items = byDay[key] ?? [];
           const isToday = key === todayKey;
           return (
             <TouchableOpacity
               key={i}
               style={[styles.dayCell, isToday && styles.dayCellToday]}
-              onPress={() => onDayPress?.(key)}
+              onPress={() => { if (items.length > 0) onDayPress?.(key); }}
             >
               <Text style={[styles.dayNum, isToday && styles.dayNumToday]}>{d.getDate()}</Text>
               {items.slice(0, 2).map(a => (
-                <View key={a.id} style={[styles.chip, { backgroundColor: chipColor(a) }]}>
+                <TouchableOpacity
+                  key={a.id}
+                  style={[styles.chip, { backgroundColor: chipColor(a) }]}
+                  onPress={() => onAssignmentPress?.(a)}
+                >
                   <Text style={[styles.chipText, a.completed && styles.chipTextDone]} numberOfLines={1}>{a.title}</Text>
-                </View>
+                </TouchableOpacity>
               ))}
-              {items.length > 2 && <Text style={styles.moreLabel}>+{items.length - 2} more</Text>}
+              {items.length > 2 && (
+                <TouchableOpacity onPress={() => onDayPress?.(key)} hitSlop={4}>
+                  <Text style={styles.moreLabel}>+{items.length - 2} more</Text>
+                </TouchableOpacity>
+              )}
             </TouchableOpacity>
           );
         })}

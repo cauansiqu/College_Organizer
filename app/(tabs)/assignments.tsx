@@ -9,10 +9,12 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import AssignmentDetailModal from "../../components/AssignmentDetailModal";
 import AssignmentFormModal, {
   AssignmentFormValues,
 } from "../../components/AssignmentFormModal";
 import CalendarMonth from "../../components/CalendarMonth";
+import DayListSheet from "../../components/DayListSheet";
 import { colors, fonts, priorityColors } from "../../constants/theme";
 import {
   deleteAssignment,
@@ -23,18 +25,10 @@ import {
   updateAssignment,
 } from "../../storage/storage";
 import { Assignment, Course } from "../../types";
-import { parseLocalDate } from "../../utils/dates";
+import { dueLabel } from "../../utils/dates";
 
 type SortMode = "date" | "priority";
 const PRIORITY_RANK: Record<string, number> = { High: 0, Medium: 1, Low: 2 };
-
-function daysUntil(dueDate: string) {
-  const due = parseLocalDate(dueDate.slice(0, 10) + "T00:00:00");
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const diff = Math.round((due.getTime() - today.getTime()) / 86400000);
-  return diff;
-}
 
 export default function AssignmentsScreen() {
   const { width } = useWindowDimensions();
@@ -47,6 +41,13 @@ export default function AssignmentsScreen() {
     null,
   );
   const [sortMode, setSortMode] = useState<SortMode>("date");
+  const [dayListDate, setDayListDate] = useState<string | null>(null);
+  // Store just the id, not the Assignment object, so the detail popup always
+  // re-derives from live `assignments` state and never shows stale data
+  // after a toggle or edit.
+  const [detailAssignmentId, setDetailAssignmentId] = useState<string | null>(
+    null,
+  );
 
   async function loadData() {
     const [a, c] = await Promise.all([getAssignments(), getCourses()]);
@@ -72,6 +73,22 @@ export default function AssignmentsScreen() {
   function closeModal() {
     setModalVisible(false);
     setEditingAssignment(null);
+  }
+
+  function openDayList(dateISO: string) {
+    setDayListDate(dateISO);
+  }
+
+  function closeDayList() {
+    setDayListDate(null);
+  }
+
+  function openDetail(assignment: Assignment) {
+    setDetailAssignmentId(assignment.id);
+  }
+
+  function closeDetail() {
+    setDetailAssignmentId(null);
   }
 
   // Called by AssignmentFormModal once the form is valid and Save/Update is tapped
@@ -111,6 +128,7 @@ export default function AssignmentsScreen() {
         await deleteAssignment(id);
         setAssignments((prev) => prev.filter((a) => a.id !== id));
         closeModal();
+        setDetailAssignmentId(null); // no-op if delete wasn't triggered from the detail popup
       },
     );
   }
@@ -122,6 +140,14 @@ export default function AssignmentsScreen() {
     }
     return a.dueDate.localeCompare(b.dueDate);
   });
+
+  // Derived (not stored) so the detail popup can never show stale data
+  // after a toggle-complete or an edit save.
+  const detailAssignment =
+    assignments.find((a) => a.id === detailAssignmentId) ?? null;
+  const detailCourse = detailAssignment
+    ? getCourse(detailAssignment.courseId)
+    : undefined;
 
   const checklist = (
     <View style={{ flex: 1, minHeight: 0 }}>
@@ -176,14 +202,7 @@ export default function AssignmentsScreen() {
         style={{ flex: 1, minHeight: 0 }}
         renderItem={({ item }) => {
           const course = getCourse(item.courseId);
-          const diff = daysUntil(item.dueDate);
-          const dueLabel = item.completed
-            ? null
-            : diff < 0
-              ? `${Math.abs(diff)}D LATE`
-              : diff === 0
-                ? "DUE TODAY"
-                : `DUE ${String(diff).padStart(2, "0")}D`;
+          const dueBadgeLabel = dueLabel(item.dueDate, item.completed);
           return (
             <TouchableOpacity
               style={[
@@ -218,7 +237,7 @@ export default function AssignmentsScreen() {
               ) : (
                 <View style={styles.cardRight}>
                   <TouchableOpacity onPress={() => handleToggle(item.id)}>
-                    <Text style={styles.dueBadge}>{dueLabel}</Text>
+                    <Text style={styles.dueBadge}>{dueBadgeLabel}</Text>
                   </TouchableOpacity>
                   <View
                     style={[
@@ -238,7 +257,12 @@ export default function AssignmentsScreen() {
 
   const calendar = (
     <View style={isWide ? styles.calendarPaneWide : undefined}>
-      <CalendarMonth assignments={assignments} courses={courses} />
+      <CalendarMonth
+        assignments={assignments}
+        courses={courses}
+        onDayPress={openDayList}
+        onAssignmentPress={openDetail}
+      />
     </View>
   );
 
@@ -272,6 +296,31 @@ export default function AssignmentsScreen() {
             ? () => handleDelete(editingAssignment.id)
             : undefined
         }
+      />
+
+      <DayListSheet
+        visible={dayListDate !== null}
+        date={dayListDate}
+        assignments={assignments}
+        courses={courses}
+        onClose={closeDayList}
+        onSelectAssignment={openDetail}
+      />
+
+      <AssignmentDetailModal
+        visible={detailAssignment !== null}
+        assignment={detailAssignment}
+        course={detailCourse}
+        onClose={closeDetail}
+        onEdit={() => {
+          if (!detailAssignment) return;
+          closeDetail();
+          openModal(detailAssignment);
+        }}
+        onToggleComplete={() =>
+          detailAssignment && handleToggle(detailAssignment.id)
+        }
+        onDelete={() => detailAssignment && handleDelete(detailAssignment.id)}
       />
     </View>
   );
