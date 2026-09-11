@@ -1,9 +1,10 @@
 import { Stack } from 'expo-router';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, Platform } from 'react-native';
 import { colors, fonts } from '../constants/theme';
 import { supabase } from '../lib/subapase';
 import { useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 
 // Root layout — a Stack navigator that wraps everything
 // The tabs group sits inside it, and detail screens slide on top
@@ -32,26 +33,29 @@ export default function RootLayout() {
   }
 
   return (
-    <Stack>
-      {/* Signed in — the tabs group and anything it can navigate to */}
-      <Stack.Protected guard={!!session}>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen
-          name="course/[id]"
-          options={{
-            title: 'Course Detail',
-            headerStyle: { backgroundColor: colors.ink },
-            headerTintColor: colors.paper,
-            headerTitleStyle: { fontFamily: fonts.display, fontWeight: '400' as const },
-          }}
-        />
-      </Stack.Protected>
+    <>
+      <Stack>
+        {/* Signed in — the tabs group and anything it can navigate to */}
+        <Stack.Protected guard={!!session}>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen
+            name="course/[id]"
+            options={{
+              title: 'Course Detail',
+              headerStyle: { backgroundColor: colors.ink },
+              headerTintColor: colors.paper,
+              headerTitleStyle: { fontFamily: fonts.display, fontWeight: '400' as const },
+            }}
+          />
+        </Stack.Protected>
 
-      {/* Signed out — login/signup */}
-      <Stack.Protected guard={!session}>
-        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-      </Stack.Protected>
-    </Stack>
+        {/* Signed out — login/signup */}
+        <Stack.Protected guard={!session}>
+          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+        </Stack.Protected>
+      </Stack>
+      {Platform.OS === 'web' && <SpeedInsights />}
+    </>
   );
 }
 
