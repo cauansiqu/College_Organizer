@@ -103,11 +103,10 @@ export default function AssignmentsScreen() {
       const newAssignment: Assignment = {
         id: Date.now().toString(),
         completed: false,
-        description: "",
         ...values,
       };
-      await saveAssignment(newAssignment);
-      setAssignments((prev) => [...prev, newAssignment]);
+      const created = await saveAssignment(newAssignment);
+      setAssignments((prev) => [...prev, created]);
     }
     closeModal();
   }

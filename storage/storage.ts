@@ -1,71 +1,177 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { supabase } from "../lib/subapase";
 import { Course, Assignment } from "../types";
 
-// Storage keys
-const COURSES_KEY = "courses";
-const ASSIGNMENTS_KEY = "assignments";
+// The DB uses snake_case columns; the app's types use camelCase. These
+// shapes describe what Supabase actually returns, and the map*FromRow
+// helpers below translate rows into the app's existing Course/Assignment
+// types so nothing outside this file needs to know about the DB's naming.
+type CourseRow = {
+    id: string;
+    name: string;
+    professor: string | null;
+    color: string | null;
+};
+
+type AssignmentRow = {
+    id: string;
+    course_id: string | null;
+    title: string;
+    due_date: string;
+    priority: Assignment["priority"];
+    completed: boolean;
+    notes: string | null;
+};
+
+function courseFromRow(row: CourseRow): Course {
+    return {
+        id: row.id,
+        name: row.name,
+        professor: row.professor ?? "",
+        color: row.color ?? "",
+    };
+}
+
+function assignmentFromRow(row: AssignmentRow): Assignment {
+    return {
+        id: row.id,
+        courseId: row.course_id ?? "",
+        title: row.title,
+        dueDate: row.due_date,
+        priority: row.priority,
+        completed: row.completed,
+        notes: row.notes ?? "",
+    };
+}
+
+// Every screen that reaches storage.ts is already behind the root layout's
+// auth gate, so a session is always expected to exist here.
+async function currentUserId(): Promise<string> {
+    const { data } = await supabase.auth.getSession();
+    const userId = data.session?.user.id;
+    if (!userId) {
+        throw new Error("No logged-in user — storage.ts requires an active session.");
+    }
+    return userId;
+}
 
 // --- COURSES ---
 
-// Load all courses from storage
+// Load all courses belonging to the current user
 export async function getCourses(): Promise<Course[]> {
-    const data = await AsyncStorage.getItem(COURSES_KEY);
-    return data ? JSON.parse(data) : [];
+    const userId = await currentUserId();
+    const { data, error } = await supabase
+        .from("courses")
+        .select("*")
+        .eq("user_id", userId);
+    if (error) throw error;
+    return (data ?? []).map(courseFromRow);
 }
 
-// Save a new course (loads existing courses, adds the new one, and saves back to storage)
-export async function saveCourse(course: Course): Promise<void> {
-    const existing = await getCourses();
-    const updated = [...existing, course];
-    await AsyncStorage.setItem(COURSES_KEY, JSON.stringify(updated));
+// Save a new course. Postgres generates the real id — the id on the
+// passed-in course object is ignored, and the DB-created row is returned
+// so callers can use its real id instead.
+export async function saveCourse(course: Course): Promise<Course> {
+    const userId = await currentUserId();
+    const { data, error } = await supabase
+        .from("courses")
+        .insert({
+            name: course.name,
+            professor: course.professor,
+            color: course.color,
+            user_id: userId,
+        })
+        .select()
+        .single();
+    if (error) throw error;
+    return courseFromRow(data);
 }
 
 // Delete a course by ID
 export async function deleteCourse(id: string): Promise<void> {
-    const existing = await getCourses();
-    const updated = existing.filter(course => course.id !== id);
-    await AsyncStorage.setItem(COURSES_KEY, JSON.stringify(updated));
+    const { error } = await supabase.from("courses").delete().eq("id", id);
+    if (error) throw error;
 }
 
 // --- ASSIGNMENTS ---
 
-// Load all assignments from storage
+// Load all assignments belonging to the current user
 export async function getAssignments(): Promise<Assignment[]> {
-    const data = await AsyncStorage.getItem(ASSIGNMENTS_KEY);
-    return data ? JSON.parse(data) : [];
+    const userId = await currentUserId();
+    const { data, error } = await supabase
+        .from("assignments")
+        .select("*")
+        .eq("user_id", userId);
+    if (error) throw error;
+    return (data ?? []).map(assignmentFromRow);
 }
 
-// Save a new assignment
-export async function saveAssignment(assignment: Assignment): Promise<void> {
-    const existing = await getAssignments();
-    const updated = [...existing, assignment];
-    await AsyncStorage.setItem(ASSIGNMENTS_KEY, JSON.stringify(updated));
+// Save a new assignment. Postgres generates the real id, same as saveCourse.
+export async function saveAssignment(assignment: Assignment): Promise<Assignment> {
+    const userId = await currentUserId();
+    const { data, error } = await supabase
+        .from("assignments")
+        .insert({
+            course_id: assignment.courseId || null,
+            title: assignment.title,
+            due_date: assignment.dueDate,
+            priority: assignment.priority,
+            completed: assignment.completed,
+            notes: assignment.notes,
+            user_id: userId,
+        })
+        .select()
+        .single();
+    if (error) throw error;
+    return assignmentFromRow(data);
 }
 
 // Delete an assignment by ID
 export async function deleteAssignment(id: string): Promise<void> {
-    const existing = await getAssignments();
-    const updated = existing.filter(assignment => assignment.id !== id);
-    await AsyncStorage.setItem(ASSIGNMENTS_KEY, JSON.stringify(updated));
+    const { error } = await supabase.from("assignments").delete().eq("id", id);
+    if (error) throw error;
 }
 
 // Toggle an assignment's completion status
 export async function toggleAssignment(id: string): Promise<void> {
-    const existing = await getAssignments();
-    const updated = existing.map(a => a.id === id ? { ...a, completed: !a.completed } : a);
-    await AsyncStorage.setItem(ASSIGNMENTS_KEY, JSON.stringify(updated));
+    const { data: current, error: fetchError } = await supabase
+        .from("assignments")
+        .select("completed")
+        .eq("id", id)
+        .single();
+    if (fetchError) throw fetchError;
+
+    const { error } = await supabase
+        .from("assignments")
+        .update({ completed: !current.completed })
+        .eq("id", id);
+    if (error) throw error;
 }
 
 // Replace a course with an updated version
 export async function updateCourse(updated: Course): Promise<void> {
-    const existing = await getCourses();
-    const newList = existing.map(c => c.id === updated.id ? updated: c);
-    await AsyncStorage.setItem(COURSES_KEY, JSON.stringify(newList));
+    const { error } = await supabase
+        .from("courses")
+        .update({
+            name: updated.name,
+            professor: updated.professor,
+            color: updated.color,
+        })
+        .eq("id", updated.id);
+    if (error) throw error;
 }
 
 // Replace an assignment with an updated version
 export async function updateAssignment(updated: Assignment): Promise<void> {
-    const existing = await getAssignments();
-    const newList = existing.map(a => a.id === updated.id ? updated : a);
-    await AsyncStorage.setItem(ASSIGNMENTS_KEY, JSON.stringify(newList));
+    const { error } = await supabase
+        .from("assignments")
+        .update({
+            course_id: updated.courseId || null,
+            title: updated.title,
+            due_date: updated.dueDate,
+            priority: updated.priority,
+            completed: updated.completed,
+            notes: updated.notes,
+        })
+        .eq("id", updated.id);
+    if (error) throw error;
 }

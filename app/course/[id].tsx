@@ -65,12 +65,11 @@ export default function CourseDetailScreen() {
       const newA: Assignment = {
         id: Date.now().toString(),
         completed: false,
-        description: '',
         ...values,
         courseId: id,
       };
-      await saveAssignment(newA);
-      setAssignments(prev => [...prev, newA]);
+      const created = await saveAssignment(newA);
+      setAssignments(prev => [...prev, created]);
     }
     closeAssignModal();
   }

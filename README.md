@@ -67,9 +67,10 @@ unchanged, since none of them know or care where the data actually lives.
 ## Current status
 
 **Working:** full CRUD for courses and assignments, a month calendar /
-week-strip view, a checklist sortable by date or priority, priority
-indicators, and a dashboard with overdue / due-this-week / high-priority
-summaries.
+week-strip view with tap-to-preview day and assignment popups, dimmed
+completed assignments on the calendar, a checklist sortable by date or
+priority, priority indicators, and a dashboard with overdue / due-this-week /
+high-priority summaries.
 
 **Known limitations:**
 - **Data is local-only.** Everything lives in AsyncStorage, per browser or
@@ -81,10 +82,9 @@ summaries.
 
 ## What's next
 
-Roughly in order: dim completed assignments on the calendar, a calendar-day
-preview popup, login/signup screens, migrating `storage.ts` to Supabase (with
-row-level security), a grades page, and due-date notifications. Full roadmap
-detail is in [`CLAUDE.md`](./CLAUDE.md#roadmap-in-order).
+Roughly in order: login/signup screens, migrating `storage.ts` to Supabase
+(with row-level security), a grades page, and due-date notifications. Full
+roadmap detail is in [`CLAUDE.md`](./CLAUDE.md#roadmap-in-order).
 
 ## Contributing / development notes
 

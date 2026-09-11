@@ -6,6 +6,8 @@ import { getAssignments, getCourses } from '../../storage/storage';
 import { parseLocalDate } from '@/utils/dates';
 import { Assignment, Course } from '../../types';
 import { colors, fonts, priorityColors } from '../../constants/theme';
+import { supabase } from '../../lib/subapase';
+import { notify } from '../../utils/alerts';
 
 const PRIORITY_COLORS = priorityColors;
 
@@ -74,8 +76,27 @@ export default function HomeScreen() {
     return `${days}d overdue`;
   }
 
+  async function handleSignOut() {
+    const { error } = await supabase.auth.signOut();
+    // No further action needed on success — app/_layout.tsx is subscribed
+    // to onAuthStateChange and will swap to the login screen itself.
+    if (error) notify('Sign out failed', error.message);
+  }
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ padding: 16, gap: 20 }}>
+
+      {/* --- Header --- */}
+      <View style={styles.headerRow}>
+        <Text style={styles.headerTitle}>College Organizer</Text>
+        <Pressable
+          onPress={handleSignOut}
+          style={({ pressed }) => [styles.signOutBtn, pressed && styles.pressedCard]}
+        >
+          <Ionicons name="log-out-outline" size={16} color={colors.muted} />
+          <Text style={styles.signOutText}>Sign Out</Text>
+        </Pressable>
+      </View>
 
       {/* --- Summary Stats Row --- */}
       <View style={styles.statsRow}>
@@ -248,6 +269,15 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.paper },
+  headerRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+  },
+  headerTitle: { fontSize: 18, fontFamily: fonts.display, color: colors.slate },
+  signOutBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingVertical: 4, paddingHorizontal: 6,
+  },
+  signOutText: { fontSize: 13, color: colors.muted },
   statsRow: { flexDirection: 'row', gap: 10 },
   statCard: {
     flex: 1, backgroundColor: colors.card, borderRadius: 12,

@@ -42,8 +42,8 @@ export default function CoursesScreen() {
       professor: professor.trim(),
       color: selectedColor,
     };
-    await saveCourse(newCourse);
-    setCourses(prev => [...prev, newCourse]);
+    const created = await saveCourse(newCourse);
+    setCourses(prev => [...prev, created]);
     setModalVisible(false);
   }
 

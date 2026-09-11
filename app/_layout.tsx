@@ -1,42 +1,65 @@
 import { Stack } from 'expo-router';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { colors, fonts } from '../constants/theme';
-import { supabase } from '../lib/subapase'; 
-import { useEffect } from 'react'; 
+import { supabase } from '../lib/subapase';
+import { useEffect, useState } from 'react';
+import type { Session } from '@supabase/supabase-js';
 
 // Root layout — a Stack navigator that wraps everything
 // The tabs group sits inside it, and detail screens slide on top
 export default function RootLayout() {
+  // undefined = session not resolved yet, null = signed out, Session = signed in.
+  // Keeping "not resolved yet" distinct from "signed out" is what lets us
+  // show a loading state instead of flashing the login screen on startup.
+  const [session, setSession] = useState<Session | null | undefined>(undefined);
+
   useEffect(() => {
-  async function testSupabaseConnection() {
-    const { data, error } = await supabase.auth.getSession()
+    supabase.auth.getSession().then(({ data }) => setSession(data.session));
 
-    if (error) {
-      console.error('Supabase connection failed:', error.message)
-      return
-    }
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      setSession(newSession);
+    });
 
-    console.log('Supabase connected successfully.')
-    console.log('Current session:', data.session)
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  if (session === undefined) {
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator color={colors.ink} size="large" />
+      </View>
+    );
   }
 
-  testSupabaseConnection()
-  }, [])
-  
   return (
     <Stack>
-      {/* The tabs group — hides the stack header since tabs have their own */}
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      {/* Signed in — the tabs group and anything it can navigate to */}
+      <Stack.Protected guard={!!session}>
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="course/[id]"
+          options={{
+            title: 'Course Detail',
+            headerStyle: { backgroundColor: colors.ink },
+            headerTintColor: colors.paper,
+            headerTitleStyle: { fontFamily: fonts.display, fontWeight: '400' as const },
+          }}
+        />
+      </Stack.Protected>
 
-      {/* Course detail screen — shown when navigating to /course/[id] */}
-      <Stack.Screen
-        name="course/[id]"
-        options={{
-          title: 'Course Detail',
-          headerStyle: { backgroundColor: colors.ink },
-          headerTintColor: colors.paper,
-          headerTitleStyle: { fontFamily: fonts.display, fontWeight: '400' as const },
-        }}
-      />
+      {/* Signed out — login/signup */}
+      <Stack.Protected guard={!session}>
+        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+      </Stack.Protected>
     </Stack>
   );
 }
+
+const styles = StyleSheet.create({
+  loading: {
+    flex: 1,
+    backgroundColor: colors.paper,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+});

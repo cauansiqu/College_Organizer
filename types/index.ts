@@ -15,5 +15,4 @@ export type Assignment = {
     priority: "Low" | "Medium" | "High";  // Priority level of the assignment
     completed: boolean;     // Completion status of the assignment
     notes: string;          // Additional notes for the assignment
-    description: string;    // Detailed description of the assignment
 }

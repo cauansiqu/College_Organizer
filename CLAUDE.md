@@ -32,8 +32,8 @@ newer to React Native/JavaScript. Learning as the project is built.
 |---|---|
 | Framework | Expo (React Native) + Expo Router (file-based routing) |
 | Language | TypeScript (strict mode on) |
-| Local storage | AsyncStorage (currently holds all app data) |
-| Backend | Supabase — connected and tested, **not yet storing app data** |
+| Local storage | AsyncStorage (Supabase auth session only — app data lives in Supabase) |
+| Backend | Supabase Postgres — courses/assignments/categories, scoped per user via RLS |
 | Web hosting | Vercel — live at college-organizer-virid.vercel.app (env vars and build config are set in Vercel's dashboard, not in this repo) |
 | CI | GitHub Actions (type-check + lint on push to main) |
 
@@ -55,11 +55,15 @@ npx expo export -p web  # production web build (also runs the Node pre-render st
 
 ```
 app/                       Every screen (Expo Router: folder names = routes)
-  _layout.tsx              Root layout — wraps everything, checks Supabase session
+  _layout.tsx              Root layout — tracks the Supabase session and gates
+                           (tabs)/course vs (auth) with Stack.Protected
+  (auth)/
+    _layout.tsx            Auth group layout — header hidden
+    index.tsx              Login/signup screen (toggles between the two)
   (tabs)/
     _layout.tsx            The bottom tab bar itself
     index.tsx              HOME tab — dashboard: stats, overdue, due-this-week,
-                           high priority, course chips
+                           high priority, course chips, sign out
     courses.tsx            COURSES tab — list/add/delete courses
     assignments.tsx        ASSIGNMENTS tab — calendar + sortable checklist
   course/
@@ -70,16 +74,20 @@ components/
                            assignments.tsx and course/[id].tsx — edit here once)
   CalendarMonth.tsx        Month grid (wide screens) / 7-day strip (phones)
   DatePickerField.tsx      Due-date input; native picker on mobile, text input on web
-  AssignmentCard.tsx       EMPTY, unused — safe to delete
-  CourseCard.tsx           EMPTY, unused — safe to delete
+  DayListSheet.tsx         Bottom sheet listing a day's assignments, opened by
+                           tapping a calendar day
+  AssignmentDetailModal.tsx  Single-assignment detail popup (opened from the
+                           calendar or day list) — mark complete, edit, delete
 
 storage/storage.ts         ALL data reads/writes. Every screen goes through this
-                           file — nothing touches AsyncStorage directly.
+                           file — queries Supabase, scoped to the logged-in user.
 types/index.ts             Course and Assignment type definitions
 constants/theme.ts         All colors and fonts, defined once
 utils/dates.ts             parseLocalDate() — the ONLY correct way to parse dates
 utils/alerts.ts            notify() / confirmDestructive() — cross-platform alerts
 lib/subapase.ts            Supabase client (note: filename is misspelled)
+
+supabase/migrations/       Version-controlled schema — source of truth, see gotcha #8
 ```
 
 ---
@@ -125,12 +133,24 @@ silently disables internal scrolling. The Assignments checklist needs
 Because `.env` never reaches GitHub, Vercel can't read it. Supabase vars must
 be added in the Vercel project's environment variable settings, then redeployed.
 
-### 8. The database schema lives only in Supabase's dashboard, not in this repo
-There's no `supabase/` migrations folder or `.sql` file checked into git — the
-`courses`/`assignments` tables were created by hand in the Supabase dashboard.
-The schema block below is a manual snapshot and can silently drift out of
-sync with the real database. If you change the schema, update this file by
-hand at the same time.
+### 8. The database schema is version-controlled — keep it that way
+`courses`/`assignments` were originally created by hand in the Supabase
+dashboard with nothing checked into git, which let this file's schema block
+silently drift from reality (discovered and fixed when migrating `storage.ts`
+to Supabase — see `supabase/migrations/`). Every schema change from here on
+must go through a new migration file (imperative style: hand-authored
+`<timestamp>_description.sql`, run manually via the Supabase SQL editor —
+there's no local Supabase instance or linked CLI project). **Never make a
+schema change only in the dashboard** — that's exactly how the drift
+happened the first time. The schema block below is a summary; the migrations
+folder is the source of truth.
+
+### 9. CI pins Node 24 — don't relax it back to a default version
+`npm ci` in GitHub Actions failed while `npm install` worked fine locally,
+because the CI runner's default Node 20 bundles npm 10, which can't read a
+`package-lock.json` written by npm 11 (the version installed locally).
+`.github/workflows/CI.yml` pins `node-version: 24` to match the local npm
+version — keep the two in sync if either one is upgraded.
 
 ---
 
@@ -138,23 +158,35 @@ hand at the same time.
 
 **Working:** courses and assignments CRUD, calendar view, sortable checklist,
 priority dots, delete-from-edit-modal, clickable dashboard sections,
-independently scrollable checklist, Supabase connection (tested, session
-returns null since there's no login UI yet).
+independently scrollable checklist, calendar day-list and assignment-detail
+popups, dimmed completed assignments on the calendar, login/signup screens
+gating the whole app (Supabase Auth, email + password, email confirmation
+required on signup), sign out from the Home tab.
 
-**Data still lives in AsyncStorage** — meaning it does NOT sync between
-devices or browsers. Each browser/device has its own separate copy. This is
-the main thing the Supabase migration will fix.
+**Data now lives in Supabase Postgres, scoped per user.** `storage.ts` reads
+and writes `courses`/`assignments` through the logged-in user's session, and
+Row Level Security policies (`auth.uid() = user_id`) enforce that scoping at
+the database level, not just in the app. AsyncStorage is now only used for
+the Supabase auth session itself (via `lib/subapase.ts`) — it no longer holds
+any course/assignment data. Signing in as a different user now correctly
+shows that user's own (empty, unless they've added data) courses and
+assignments, not anyone else's.
 
 ---
 
-## Database schema (Supabase — created, but not yet used by the app)
+## Database schema (Supabase — source of truth is `supabase/migrations/`)
 
 ```sql
 create table courses (
   id uuid primary key default gen_random_uuid(),
   name varchar not null,
   professor varchar,
-  color varchar(7)
+  color varchar(7),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  grade_a_min numeric not null default 90,
+  grade_b_min numeric not null default 80,
+  grade_c_min numeric not null default 70,
+  grade_d_min numeric not null default 60
 );
 
 create table assignments (
@@ -164,16 +196,34 @@ create table assignments (
   due_date date not null,
   priority varchar(6) not null default 'Medium',
   completed boolean not null default false,
-  notes text
+  notes text,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  points_earned numeric,
+  points_possible numeric,
+  category_id uuid references categories(id) on delete set null
+);
+
+create table categories (
+  id uuid primary key default gen_random_uuid(),
+  course_id uuid references courses(id) on delete cascade,
+  name varchar not null,
+  weight numeric,
+  user_id uuid not null references auth.users(id) on delete cascade
 );
 ```
 
-`on delete set null` is deliberate: deleting a course must NOT delete its
-assignments (the app's own confirmation dialog promises this).
+`assignments.course_id on delete set null` is deliberate: deleting a course
+must NOT delete its assignments (the app's own confirmation dialog promises
+this). `categories.course_id on delete cascade` is the opposite on purpose —
+a category has no meaning without its course.
 
-**Still to add during migration:** a `user_id` column on both tables, Row
-Level Security policies scoping rows to the logged-in user, and a `grade`
-column on `assignments` for the planned Grades feature.
+RLS is enabled on all three tables, with `select`/`insert`/`update`/`delete`
+policies scoping every row to `auth.uid() = user_id`.
+
+**Schema only, no UI yet:** `points_earned`/`points_possible` on
+`assignments`, the `grade_*_min` thresholds on `courses`, and the whole
+`categories` table + `assignments.category_id` exist for the planned Grades
+page (roadmap item 8) but nothing reads or writes them today.
 
 ---
 
@@ -182,13 +232,10 @@ column on `assignments` for the planned Grades feature.
 1. ~~Clickable "High priority" section~~ — done
 2. ~~Show priority in the checklist~~ — done
 3. ~~Scrollable checklist~~ — done
-4. Dim completed assignments on the calendar (lighter course color)
-5. Calendar event preview popup (Google Calendar style) — `CalendarMonth`
-   already accepts an `onDayPress` prop and wires it up on every day cell;
-   `assignments.tsx` just never passes a handler yet, so tapping a day
-   currently does nothing
-6. Login/signup screens (Supabase Auth)
-7. Migrate `storage.ts` to Supabase (add `user_id` + RLS + `grade` column)
+4. ~~Dim completed assignments on the calendar (lighter course color)~~ — done
+5. ~~Calendar event preview popup (Google Calendar style)~~ — done
+6. ~~Login/signup screens (Supabase Auth)~~ — done
+7. ~~Migrate `storage.ts` to Supabase (add `user_id` + RLS + `grade` column)~~ — done
 8. Grades page (per-assignment grades, computed course averages)
 9. Due-date notifications (3 days / 1 day before)
 10. Full visual redesign pass (do this LAST, once all screens exist)
