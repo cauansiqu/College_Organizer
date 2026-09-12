@@ -46,6 +46,16 @@ export default function Layout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="grades"
+        options={{
+          title: 'Grades',
+          tabBarLabel: 'Grades',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialIcons name="grade" size={size} color={color} />
+          ),
+        }}
+      />
     </Tabs>
   );
 }

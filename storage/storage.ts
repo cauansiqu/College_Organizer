@@ -10,6 +10,10 @@ type CourseRow = {
     name: string;
     professor: string | null;
     color: string | null;
+    grade_a_min: number;
+    grade_b_min: number;
+    grade_c_min: number;
+    grade_d_min: number;
 };
 
 type AssignmentRow = {
@@ -20,6 +24,8 @@ type AssignmentRow = {
     priority: Assignment["priority"];
     completed: boolean;
     notes: string | null;
+    points_earned: number | null;
+    points_possible: number | null;
 };
 
 function courseFromRow(row: CourseRow): Course {
@@ -28,6 +34,10 @@ function courseFromRow(row: CourseRow): Course {
         name: row.name,
         professor: row.professor ?? "",
         color: row.color ?? "",
+        gradeAMin: row.grade_a_min,
+        gradeBMin: row.grade_b_min,
+        gradeCMin: row.grade_c_min,
+        gradeDMin: row.grade_d_min,
     };
 }
 
@@ -40,6 +50,8 @@ function assignmentFromRow(row: AssignmentRow): Assignment {
         priority: row.priority,
         completed: row.completed,
         notes: row.notes ?? "",
+        pointsEarned: row.points_earned ?? null,
+        pointsPossible: row.points_possible ?? null,
     };
 }
 
@@ -117,6 +129,8 @@ export async function saveAssignment(assignment: Assignment): Promise<Assignment
             priority: assignment.priority,
             completed: assignment.completed,
             notes: assignment.notes,
+            points_earned: assignment.pointsEarned,
+            points_possible: assignment.pointsPossible,
             user_id: userId,
         })
         .select()
@@ -155,6 +169,10 @@ export async function updateCourse(updated: Course): Promise<void> {
             name: updated.name,
             professor: updated.professor,
             color: updated.color,
+            grade_a_min: updated.gradeAMin,
+            grade_b_min: updated.gradeBMin,
+            grade_c_min: updated.gradeCMin,
+            grade_d_min: updated.gradeDMin,
         })
         .eq("id", updated.id);
     if (error) throw error;
@@ -171,6 +189,8 @@ export async function updateAssignment(updated: Assignment): Promise<void> {
             priority: updated.priority,
             completed: updated.completed,
             notes: updated.notes,
+            points_earned: updated.pointsEarned,
+            points_possible: updated.pointsPossible,
         })
         .eq("id", updated.id);
     if (error) throw error;

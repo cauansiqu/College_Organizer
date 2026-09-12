@@ -41,6 +41,12 @@ export default function CoursesScreen() {
       name: name.trim(),
       professor: professor.trim(),
       color: selectedColor,
+      // Matches the DB column defaults — saveCourse() doesn't send these on
+      // insert, so Postgres fills them in; kept here just to satisfy the type.
+      gradeAMin: 90,
+      gradeBMin: 80,
+      gradeCMin: 70,
+      gradeDMin: 60,
     };
     const created = await saveCourse(newCourse);
     setCourses(prev => [...prev, created]);

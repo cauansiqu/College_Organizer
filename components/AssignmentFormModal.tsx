@@ -4,6 +4,7 @@ import DatePickerField from './DatePickerField';
 import { notify } from '../utils/alerts';
 import { Assignment, Course } from '../types';
 import { colors, fonts, priorityColors } from '../constants/theme';
+import { getAssignmentPercentage } from '../utils/grades';
 
 const PRIORITIES = ['Low', 'Medium', 'High'] as const;
 
@@ -16,6 +17,8 @@ export type AssignmentFormValues = {
   notes: string;
   priority: 'Low' | 'Medium' | 'High';
   courseId: string;
+  pointsEarned: number | null;
+  pointsPossible: number | null;
 };
 
 type Props = {
@@ -37,6 +40,8 @@ export default function AssignmentFormModal({
   const [notes, setNotes] = useState('');
   const [priority, setPriority] = useState<'Low' | 'Medium' | 'High'>('Medium');
   const [courseId, setCourseId] = useState('');
+  const [pointsEarned, setPointsEarned] = useState('');
+  const [pointsPossible, setPointsPossible] = useState('');
 
   // Every time the modal opens, either pre-fill it (editing an existing
   // assignment) or reset it to blank (adding a new one).
@@ -48,12 +53,16 @@ export default function AssignmentFormModal({
       setNotes(editing.notes);
       setPriority(editing.priority);
       setCourseId(editing.courseId);
+      setPointsEarned(editing.pointsEarned != null ? String(editing.pointsEarned) : '');
+      setPointsPossible(editing.pointsPossible != null ? String(editing.pointsPossible) : '');
     } else {
       setTitle('');
       setDueDate('');
       setNotes('');
       setPriority('Medium');
       setCourseId(defaultCourseId ?? (courses && courses.length > 0 ? courses[0].id : ''));
+      setPointsEarned('');
+      setPointsPossible('');
     }
     // Deliberately only [visible, editing]: this should re-run when the modal
     // opens or which assignment we're editing changes, not on every re-render.
@@ -62,10 +71,38 @@ export default function AssignmentFormModal({
 
   const saveColor = accentColor ?? colors.ink;
 
+  // Live preview only, not used for validation — handleSave() re-parses the
+  // raw strings itself so this can stay purely cosmetic.
+  const previewPercentage = getAssignmentPercentage({
+    pointsEarned: pointsEarned.trim() ? parseFloat(pointsEarned) : null,
+    pointsPossible: pointsPossible.trim() ? parseFloat(pointsPossible) : null,
+  });
+
   function handleSave() {
     if (!title.trim()) { notify('Missing info', 'Please enter a title.'); return; }
     if (!dueDate.trim()) { notify('Missing info', 'Please pick a due date.'); return; }
     if (courses && !courseId) { notify('Missing info', 'Please add a course first.'); return; }
+
+    const earnedText = pointsEarned.trim();
+    const possibleText = pointsPossible.trim();
+    if (!!earnedText !== !!possibleText) {
+      notify('Missing value', 'Enter both points earned and possible, or leave both blank.');
+      return;
+    }
+    let parsedEarned: number | null = null;
+    let parsedPossible: number | null = null;
+    if (earnedText && possibleText) {
+      parsedEarned = parseFloat(earnedText);
+      parsedPossible = parseFloat(possibleText);
+      if (!Number.isFinite(parsedEarned) || parsedEarned < 0) {
+        notify('Invalid value', 'Points earned must be a number of 0 or more.');
+        return;
+      }
+      if (!Number.isFinite(parsedPossible) || parsedPossible <= 0) {
+        notify('Invalid value', 'Points possible must be greater than 0.');
+        return;
+      }
+    }
 
     onSave({
       title: title.trim(),
@@ -73,6 +110,8 @@ export default function AssignmentFormModal({
       notes: notes.trim(),
       priority,
       courseId: courseId || defaultCourseId || '',
+      pointsEarned: parsedEarned,
+      pointsPossible: parsedPossible,
     });
   }
 
@@ -96,6 +135,28 @@ export default function AssignmentFormModal({
             onChangeText={setNotes}
             multiline
           />
+
+          <Text style={styles.label}>Grade (optional):</Text>
+          <View style={styles.pointsRow}>
+            <TextInput
+              style={[styles.input, styles.pointsInput]}
+              placeholder="Earned"
+              value={pointsEarned}
+              onChangeText={setPointsEarned}
+              keyboardType="numeric"
+            />
+            <Text style={styles.pointsSlash}>/</Text>
+            <TextInput
+              style={[styles.input, styles.pointsInput]}
+              placeholder="Possible"
+              value={pointsPossible}
+              onChangeText={setPointsPossible}
+              keyboardType="numeric"
+            />
+            {previewPercentage != null && (
+              <Text style={styles.pointsPreview}>{Math.round(previewPercentage)}%</Text>
+            )}
+          </View>
 
           {/* Only shown when the caller passes a course list (Assignments tab).
               On the Course Detail page, `courses` is left undefined, so this
@@ -160,6 +221,10 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 19, fontFamily: fonts.display, marginBottom: 16, color: colors.slate },
   input: { borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 12, fontSize: 15, marginBottom: 12, backgroundColor: colors.card },
   label: { fontSize: 13, color: colors.muted, marginBottom: 8 },
+  pointsRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+  pointsInput: { flex: 1, marginBottom: 0 },
+  pointsSlash: { fontSize: 15, color: colors.muted },
+  pointsPreview: { fontSize: 13, fontFamily: fonts.mono, color: colors.success, marginLeft: 4 },
   chip: { borderWidth: 1.5, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7, marginRight: 8 },
   chipText: { fontSize: 13, color: colors.slate },
   priorityRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
