@@ -3,13 +3,23 @@ import { View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList } from 'r
 import { useFocusEffect } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors, fonts } from '../../constants/theme';
-import { getAssignments, getCourses, updateAssignment, updateCourse } from '../../storage/storage';
-import { Assignment, Course } from '../../types';
+import {
+  getAssignments,
+  getCategories,
+  getCourses,
+  saveCategory,
+  updateAssignment,
+  updateCategory,
+  updateCourse,
+  deleteCategory,
+} from '../../storage/storage';
+import { Assignment, Category, Course } from '../../types';
 import {
   GradeThresholds,
   getAssignmentPercentage,
   getLetterGrade,
-  summarizeCourseGrades,
+  summarizeCourse,
+  summarizeGrades,
   thresholdsFromCourse,
 } from '../../utils/grades';
 import GradeThresholdsModal from '../../components/GradeThresholdsModal';
@@ -19,6 +29,7 @@ type Draft = { earned: string; possible: string };
 export default function GradesScreen() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   // Per-assignment in-progress text for the inline earned/possible inputs.
   // Kept separate from `assignments` so a background refetch never clobbers
@@ -34,9 +45,10 @@ export default function GradesScreen() {
   useFocusEffect(
     useCallback(() => {
       async function load() {
-        const [a, c] = await Promise.all([getAssignments(), getCourses()]);
+        const [a, c, cat] = await Promise.all([getAssignments(), getCourses(), getCategories()]);
         setAssignments(a);
         setCourses(c);
+        setCategories(cat);
         if (!hasExpandedDefault.current && c.length > 0) {
           hasExpandedDefault.current = true;
           setExpandedIds(new Set([c[0].id]));
@@ -154,6 +166,25 @@ export default function GradesScreen() {
     setThresholdsCourse(null);
   }
 
+  async function handleAddCategory(name: string, weight: number) {
+    if (!thresholdsCourse) return;
+    const created = await saveCategory({ id: '', courseId: thresholdsCourse.id, name, weight });
+    setCategories((prev) => [...prev, created]);
+  }
+
+  async function handleUpdateCategory(updated: Category) {
+    await updateCategory(updated);
+    setCategories((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+  }
+
+  async function handleDeleteCategory(id: string) {
+    await deleteCategory(id);
+    setCategories((prev) => prev.filter((c) => c.id !== id));
+    // The DB already un-links these via ON DELETE SET NULL — mirror that
+    // locally so the UI doesn't wait on a refetch to reflect it.
+    setAssignments((prev) => prev.map((a) => (a.categoryId === id ? { ...a, categoryId: null } : a)));
+  }
+
   return (
     <View style={styles.container}>
       {courses.length === 0 ? (
@@ -171,11 +202,13 @@ export default function GradesScreen() {
             const courseAssignments = assignments
               .filter((a) => a.courseId === course.id)
               .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
-            const summary = summarizeCourseGrades(courseAssignments);
+            const courseCategories = categories.filter((c) => c.courseId === course.id);
+            const result = summarizeCourse(courseAssignments, courseCategories);
+            const flatPoints = summarizeGrades(courseAssignments);
             const expanded = expandedIds.has(course.id);
             const letter =
-              summary.percentage != null
-                ? getLetterGrade(summary.percentage, thresholdsFromCourse(course))
+              result.percentage != null
+                ? getLetterGrade(result.percentage, thresholdsFromCourse(course))
                 : null;
 
             return (
@@ -185,15 +218,17 @@ export default function GradesScreen() {
                     <View style={styles.headerText}>
                       <Text style={styles.courseName}>{course.name}</Text>
                       <Text style={styles.summaryLine}>
-                        {summary.gradedCount > 0
-                          ? `${trimNum(summary.earned)} / ${trimNum(summary.possible)} points · ${summary.gradedCount} graded`
-                          : `No grades entered yet · ${summary.totalCount} assignment${summary.totalCount === 1 ? '' : 's'}`}
+                        {result.gradedCount > 0
+                          ? result.hasCategories
+                            ? `Weighted · ${result.gradedCount} graded`
+                            : `${trimNum(flatPoints.earned)} / ${trimNum(flatPoints.possible)} points · ${result.gradedCount} graded`
+                          : `No grades entered yet · ${result.totalCount} assignment${result.totalCount === 1 ? '' : 's'}`}
                       </Text>
                     </View>
                     <View style={styles.headerActions}>
-                      {summary.percentage != null && letter && (
+                      {result.percentage != null && letter && (
                         <View style={styles.gradeBadge}>
-                          <Text style={styles.gradePercent}>{Math.round(summary.percentage)}%</Text>
+                          <Text style={styles.gradePercent}>{Math.round(result.percentage)}%</Text>
                           <Text style={styles.gradeLetter}>{letter}</Text>
                         </View>
                       )}
@@ -209,6 +244,40 @@ export default function GradesScreen() {
 
                 {expanded && (
                   <View style={styles.body}>
+                    {result.hasCategories && (
+                      <View style={styles.breakdown}>
+                        {result.categoryBreakdown.map((b) => {
+                          const graded = b.percentage != null;
+                          const strong = graded && (b.percentage as number) >= course.gradeBMin;
+                          const barColor = graded ? (strong ? colors.success : colors.warning) : colors.border;
+                          return (
+                            <View key={b.category.id} style={styles.breakdownRow}>
+                              <Text style={styles.breakdownName} numberOfLines={1}>
+                                {b.category.name}
+                              </Text>
+                              <Text style={styles.breakdownWeight}>{trimNum(b.category.weight ?? 0)}%</Text>
+                              <View style={styles.progressTrack}>
+                                <View
+                                  style={[
+                                    styles.progressFill,
+                                    { width: `${Math.min(100, Math.max(0, graded ? (b.percentage as number) : 0))}%`, backgroundColor: barColor },
+                                  ]}
+                                />
+                              </View>
+                              <Text
+                                style={[
+                                  styles.breakdownPercent,
+                                  graded ? { color: strong ? colors.success : colors.warning } : styles.rowPercentUngraded,
+                                ]}
+                              >
+                                {graded ? `${Math.round(b.percentage as number)}%` : '—'}
+                              </Text>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    )}
+
                     {courseAssignments.length === 0 ? (
                       <Text style={styles.noAssignments}>No assignments in this course yet.</Text>
                     ) : (
@@ -216,15 +285,29 @@ export default function GradesScreen() {
                         const draft = draftFor(assignment);
                         const percentage = getAssignmentPercentage(assignment);
                         const isGraded = percentage != null;
+                        const uncounted = result.hasCategories && isGraded && assignment.categoryId == null;
                         const strong = isGraded && percentage >= course.gradeBMin;
                         const rowError = rowErrors[assignment.id];
+                        const assignmentCategory = categories.find((c) => c.id === assignment.categoryId);
 
                         return (
                           <View key={assignment.id} style={styles.rowWrap}>
                             <View style={styles.row}>
-                              <Text style={styles.rowTitle} numberOfLines={1}>
-                                {assignment.title}
-                              </Text>
+                              <View style={styles.rowTitleWrap}>
+                                <Text style={styles.rowTitle} numberOfLines={1}>
+                                  {assignment.title}
+                                </Text>
+                                {result.hasCategories && assignmentCategory && (
+                                  <View style={styles.categoryChip}>
+                                    <Text style={styles.categoryChipText} numberOfLines={1}>{assignmentCategory.name}</Text>
+                                  </View>
+                                )}
+                                {uncounted && (
+                                  <View style={styles.categoryChipMissing}>
+                                    <Text style={styles.categoryChipMissingText}>No category</Text>
+                                  </View>
+                                )}
+                              </View>
                               <View style={styles.rowInputs}>
                                 <TextInput
                                   style={[styles.rowInput, !draft.earned && styles.rowInputEmpty]}
@@ -250,7 +333,7 @@ export default function GradesScreen() {
                                 style={[
                                   styles.rowPercent,
                                   isGraded
-                                    ? { color: strong ? colors.success : colors.warning }
+                                    ? { color: uncounted ? colors.muted : strong ? colors.success : colors.warning }
                                     : styles.rowPercentUngraded,
                                 ]}
                               >
@@ -261,6 +344,12 @@ export default function GradesScreen() {
                           </View>
                         );
                       })
+                    )}
+
+                    {result.hasCategories && result.uncategorizedGradedCount > 0 && (
+                      <Text style={styles.uncategorizedWarning}>
+                        {`${result.uncategorizedGradedCount} graded assignment${result.uncategorizedGradedCount === 1 ? '' : 's'} aren't in a category and aren't counted toward the average.`}
+                      </Text>
                     )}
                   </View>
                 )}
@@ -273,8 +362,12 @@ export default function GradesScreen() {
       <GradeThresholdsModal
         visible={thresholdsCourse !== null}
         course={thresholdsCourse}
+        categories={thresholdsCourse ? categories.filter((c) => c.courseId === thresholdsCourse.id) : []}
         onCancel={() => setThresholdsCourse(null)}
         onSave={handleSaveThresholds}
+        onAddCategory={handleAddCategory}
+        onUpdateCategory={handleUpdateCategory}
+        onDeleteCategory={handleDeleteCategory}
       />
     </View>
   );
@@ -308,10 +401,23 @@ const styles = StyleSheet.create({
   gradeLetter: { fontSize: 12, color: 'rgba(255,255,255,0.85)' },
   body: { padding: 16, paddingTop: 12, gap: 12 },
   noAssignments: { fontSize: 13, color: colors.muted, fontStyle: 'italic' as const },
+  breakdown: { gap: 8, marginBottom: 4, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
+  breakdownRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  breakdownName: { width: 90, fontSize: 12, color: colors.slate },
+  breakdownWeight: { width: 36, fontSize: 11, fontFamily: fonts.mono, color: colors.muted },
+  progressTrack: { flex: 1, height: 6, borderRadius: 3, backgroundColor: colors.border, overflow: 'hidden' },
+  progressFill: { height: '100%', borderRadius: 3 },
+  breakdownPercent: { width: 44, fontSize: 12, fontFamily: fonts.mono, textAlign: 'right' },
   rowWrap: { gap: 4 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   rowError: { fontSize: 11, color: colors.danger },
-  rowTitle: { flex: 1, fontSize: 14, color: colors.slate },
+  rowTitleWrap: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  rowTitle: { flexShrink: 1, fontSize: 14, color: colors.slate },
+  categoryChip: { backgroundColor: colors.border, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2, maxWidth: 90 },
+  categoryChipText: { fontSize: 10, color: colors.slate },
+  categoryChipMissing: { backgroundColor: colors.danger, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 },
+  categoryChipMissingText: { fontSize: 10, color: '#fff', fontWeight: '600' as const },
+  uncategorizedWarning: { fontSize: 11, color: colors.danger, marginTop: 4 },
   rowInputs: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   rowInput: {
     width: 48,

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Modal, ScrollView } from 'react-native';
 import DatePickerField from './DatePickerField';
 import { notify } from '../utils/alerts';
-import { Assignment, Course } from '../types';
+import { Assignment, Category, Course } from '../types';
 import { colors, fonts, priorityColors } from '../constants/theme';
 import { getAssignmentPercentage } from '../utils/grades';
 
@@ -19,6 +19,7 @@ export type AssignmentFormValues = {
   courseId: string;
   pointsEarned: number | null;
   pointsPossible: number | null;
+  categoryId: string | null;
 };
 
 type Props = {
@@ -26,6 +27,7 @@ type Props = {
   editing: Assignment | null;   // null = "Add" mode, an Assignment = "Edit" mode (pre-fills the form)
   courses?: Course[];           // pass this to show a course-picker row (used on the Assignments tab)
   defaultCourseId?: string;     // used instead, when there's no picker (used on the Course Detail page)
+  categories?: Category[];      // full list; filtered internally to the currently-selected course
   accentColor?: string;         // Save button color; defaults to the app's ink color
   onCancel: () => void;
   onSave: (values: AssignmentFormValues) => void;
@@ -33,7 +35,7 @@ type Props = {
 };
 
 export default function AssignmentFormModal({
-  visible, editing, courses, defaultCourseId, accentColor, onCancel, onSave, onDelete,
+  visible, editing, courses, defaultCourseId, categories, accentColor, onCancel, onSave, onDelete,
 }: Props) {
   const [title, setTitle] = useState('');
   const [dueDate, setDueDate] = useState('');
@@ -42,6 +44,7 @@ export default function AssignmentFormModal({
   const [courseId, setCourseId] = useState('');
   const [pointsEarned, setPointsEarned] = useState('');
   const [pointsPossible, setPointsPossible] = useState('');
+  const [categoryId, setCategoryId] = useState<string | null>(null);
 
   // Every time the modal opens, either pre-fill it (editing an existing
   // assignment) or reset it to blank (adding a new one).
@@ -55,6 +58,7 @@ export default function AssignmentFormModal({
       setCourseId(editing.courseId);
       setPointsEarned(editing.pointsEarned != null ? String(editing.pointsEarned) : '');
       setPointsPossible(editing.pointsPossible != null ? String(editing.pointsPossible) : '');
+      setCategoryId(editing.categoryId);
     } else {
       setTitle('');
       setDueDate('');
@@ -63,6 +67,7 @@ export default function AssignmentFormModal({
       setCourseId(defaultCourseId ?? (courses && courses.length > 0 ? courses[0].id : ''));
       setPointsEarned('');
       setPointsPossible('');
+      setCategoryId(null);
     }
     // Deliberately only [visible, editing]: this should re-run when the modal
     // opens or which assignment we're editing changes, not on every re-render.
@@ -70,6 +75,15 @@ export default function AssignmentFormModal({
   }, [visible, editing]);
 
   const saveColor = accentColor ?? colors.ink;
+
+  // Categories belong to a course, so recompute which ones are valid options
+  // every render from the currently-selected course rather than syncing via
+  // an effect. If `categoryId` references a category from a course the user
+  // has since switched away from, it's simply treated as unselected here —
+  // no separate reset step needed.
+  const categoryOptions = (categories ?? []).filter((c) => c.courseId === courseId);
+  const effectiveCategoryId =
+    categoryId && categoryOptions.some((c) => c.id === categoryId) ? categoryId : null;
 
   // Live preview only, not used for validation — handleSave() re-parses the
   // raw strings itself so this can stay purely cosmetic.
@@ -112,6 +126,7 @@ export default function AssignmentFormModal({
       courseId: courseId || defaultCourseId || '',
       pointsEarned: parsedEarned,
       pointsPossible: parsedPossible,
+      categoryId: effectiveCategoryId,
     });
   }
 
@@ -181,6 +196,34 @@ export default function AssignmentFormModal({
             </>
           )}
 
+          {/* Only shown when this course actually has categories set up. */}
+          {categoryOptions.length > 0 && (
+            <>
+              <Text style={styles.label}>Category:</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+                <TouchableOpacity
+                  style={[styles.categoryBtn, effectiveCategoryId === null && styles.categoryBtnActive]}
+                  onPress={() => setCategoryId(null)}
+                >
+                  <Text style={[styles.categoryBtnText, effectiveCategoryId === null && styles.categoryBtnTextActive]}>
+                    No category
+                  </Text>
+                </TouchableOpacity>
+                {categoryOptions.map((cat) => (
+                  <TouchableOpacity
+                    key={cat.id}
+                    style={[styles.categoryBtn, effectiveCategoryId === cat.id && styles.categoryBtnActive]}
+                    onPress={() => setCategoryId(cat.id)}
+                  >
+                    <Text style={[styles.categoryBtnText, effectiveCategoryId === cat.id && styles.categoryBtnTextActive]}>
+                      {cat.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </>
+          )}
+
           <Text style={styles.label}>Priority:</Text>
           <View style={styles.priorityRow}>
             {PRIORITIES.map(p => (
@@ -227,6 +270,13 @@ const styles = StyleSheet.create({
   pointsPreview: { fontSize: 13, fontFamily: fonts.mono, color: colors.success, marginLeft: 4 },
   chip: { borderWidth: 1.5, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7, marginRight: 8 },
   chipText: { fontSize: 13, color: colors.slate },
+  categoryBtn: {
+    borderWidth: 1.5, borderColor: colors.border, borderRadius: 10,
+    paddingHorizontal: 14, paddingVertical: 10, marginRight: 8,
+  },
+  categoryBtnActive: { backgroundColor: colors.ink, borderColor: colors.ink },
+  categoryBtnText: { fontSize: 13, fontWeight: '600' as const, color: colors.slate },
+  categoryBtnTextActive: { color: '#fff' },
   priorityRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
   priorityBtn: { flex: 1, padding: 10, borderRadius: 10, borderWidth: 1.5, alignItems: 'center' },
   priorityText: { fontSize: 13, fontWeight: '600' as const, color: colors.slate },

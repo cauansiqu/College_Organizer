@@ -21,4 +21,15 @@ export type Assignment = {
     notes: string;          // Additional notes for the assignment
     pointsEarned: number | null;    // Points scored; null until graded
     pointsPossible: number | null;  // Points the assignment was worth; null until graded
+    categoryId: string | null;      // Weighted grade category this belongs to; null if uncategorized
+}
+
+// A "Category" is a weighted grouping of assignments within a course
+// (e.g. "Homework" 30%, "Exams" 50%) used to compute a weighted average
+// instead of a flat points total.
+export type Category = {
+    id: string;
+    courseId: string;
+    name: string;
+    weight: number | null;  // percentage weight; nullable to match the DB column
 }

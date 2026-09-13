@@ -1,5 +1,5 @@
 import { supabase } from "../lib/subapase";
-import { Course, Assignment } from "../types";
+import { Course, Assignment, Category } from "../types";
 
 // The DB uses snake_case columns; the app's types use camelCase. These
 // shapes describe what Supabase actually returns, and the map*FromRow
@@ -26,6 +26,14 @@ type AssignmentRow = {
     notes: string | null;
     points_earned: number | null;
     points_possible: number | null;
+    category_id: string | null;
+};
+
+type CategoryRow = {
+    id: string;
+    course_id: string | null;
+    name: string;
+    weight: number | null;
 };
 
 function courseFromRow(row: CourseRow): Course {
@@ -52,6 +60,16 @@ function assignmentFromRow(row: AssignmentRow): Assignment {
         notes: row.notes ?? "",
         pointsEarned: row.points_earned ?? null,
         pointsPossible: row.points_possible ?? null,
+        categoryId: row.category_id ?? null,
+    };
+}
+
+function categoryFromRow(row: CategoryRow): Category {
+    return {
+        id: row.id,
+        courseId: row.course_id ?? "",
+        name: row.name,
+        weight: row.weight ?? null,
     };
 }
 
@@ -131,6 +149,7 @@ export async function saveAssignment(assignment: Assignment): Promise<Assignment
             notes: assignment.notes,
             points_earned: assignment.pointsEarned,
             points_possible: assignment.pointsPossible,
+            category_id: assignment.categoryId,
             user_id: userId,
         })
         .select()
@@ -191,7 +210,57 @@ export async function updateAssignment(updated: Assignment): Promise<void> {
             notes: updated.notes,
             points_earned: updated.pointsEarned,
             points_possible: updated.pointsPossible,
+            category_id: updated.categoryId,
         })
         .eq("id", updated.id);
+    if (error) throw error;
+}
+
+// --- CATEGORIES ---
+
+// Load all categories belonging to the current user
+export async function getCategories(): Promise<Category[]> {
+    const userId = await currentUserId();
+    const { data, error } = await supabase
+        .from("categories")
+        .select("*")
+        .eq("user_id", userId);
+    if (error) throw error;
+    return (data ?? []).map(categoryFromRow);
+}
+
+// Save a new category. Postgres generates the real id, same as saveCourse.
+export async function saveCategory(category: Category): Promise<Category> {
+    const userId = await currentUserId();
+    const { data, error } = await supabase
+        .from("categories")
+        .insert({
+            course_id: category.courseId,
+            name: category.name,
+            weight: category.weight,
+            user_id: userId,
+        })
+        .select()
+        .single();
+    if (error) throw error;
+    return categoryFromRow(data);
+}
+
+// Replace a category with an updated version
+export async function updateCategory(updated: Category): Promise<void> {
+    const { error } = await supabase
+        .from("categories")
+        .update({
+            course_id: updated.courseId,
+            name: updated.name,
+            weight: updated.weight,
+        })
+        .eq("id", updated.id);
+    if (error) throw error;
+}
+
+// Delete a category by ID
+export async function deleteCategory(id: string): Promise<void> {
+    const { error } = await supabase.from("categories").delete().eq("id", id);
     if (error) throw error;
 }

@@ -2,9 +2,9 @@ import { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity,
          Modal, TextInput } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
-import { getCourses, getAssignments, saveAssignment,
+import { getCourses, getAssignments, getCategories, saveAssignment,
          deleteAssignment, toggleAssignment, updateAssignment, updateCourse, deleteCourse } from '../../storage/storage';
-import { Course, Assignment } from '../../types';
+import { Course, Assignment, Category } from '../../types';
 import AssignmentFormModal, { AssignmentFormValues } from '../../components/AssignmentFormModal';
 import { notify, confirmDestructive } from '../../utils/alerts';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -19,6 +19,7 @@ export default function CourseDetailScreen() {
 
   const [course, setCourse] = useState<Course | null>(null);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
 
   // Assignment modal state
   const [assignModalVisible, setAssignModalVisible] = useState(false);
@@ -33,10 +34,11 @@ export default function CourseDetailScreen() {
   useFocusEffect(
   useCallback(() => {
     async function load() {
-      const [allCourses, allAssignments] = await Promise.all([getCourses(), getAssignments()]);
+      const [allCourses, allAssignments, allCategories] = await Promise.all([getCourses(), getAssignments(), getCategories()]);
       const found = allCourses.find(c => c.id === id) ?? null;
       setCourse(found);
       setAssignments(allAssignments.filter(a => a.courseId === id));
+      setCategories(allCategories.filter(c => c.courseId === id));
     }
     load();
   }, [id])
@@ -214,6 +216,7 @@ export default function CourseDetailScreen() {
         visible={assignModalVisible}
         editing={editingAssignment}
         defaultCourseId={id}
+        categories={categories}
         accentColor={course.color}
         onCancel={closeAssignModal}
         onSave={handleSaveAssignment}

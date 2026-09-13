@@ -1,21 +1,28 @@
 import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Modal, useWindowDimensions } from 'react-native';
-import { Course } from '../types';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { Category, Course } from '../types';
 import { GradeThresholds } from '../utils/grades';
 import { colors, fonts } from '../constants/theme';
-import { notify } from '../utils/alerts';
+import { notify, confirmDestructive } from '../utils/alerts';
 
 type Props = {
   visible: boolean;
   course: Course | null;
+  categories: Category[]; // pre-filtered to this course by the caller
   onCancel: () => void;
   onSave: (thresholds: GradeThresholds) => void;
+  onAddCategory: (name: string, weight: number) => void;
+  onUpdateCategory: (category: Category) => void;
+  onDeleteCategory: (id: string) => void;
 };
 
 // Lets a course use a different grading scale than the 90/80/70/60 default —
 // some professors grade on a curve. Same navy-header popup style as
 // AssignmentDetailModal, but a simple form instead of a detail view.
-export default function GradeThresholdsModal({ visible, course, onCancel, onSave }: Props) {
+export default function GradeThresholdsModal({
+  visible, course, categories, onCancel, onSave, onAddCategory, onUpdateCategory, onDeleteCategory,
+}: Props) {
   const { width } = useWindowDimensions();
   const isWide = width >= 700;
 
@@ -24,13 +31,69 @@ export default function GradeThresholdsModal({ visible, course, onCancel, onSave
   const [cMin, setCMin] = useState('');
   const [dMin, setDMin] = useState('');
 
+  // Add/edit form for a single category. `editingCategoryId` is null while
+  // adding a new one, or the id of the category being edited.
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+  const [categoryName, setCategoryName] = useState('');
+  const [categoryWeight, setCategoryWeight] = useState('');
+
   useEffect(() => {
     if (!visible || !course) return;
     setAMin(String(course.gradeAMin));
     setBMin(String(course.gradeBMin));
     setCMin(String(course.gradeCMin));
     setDMin(String(course.gradeDMin));
+    setEditingCategoryId(null);
+    setCategoryName('');
+    setCategoryWeight('');
   }, [visible, course]);
+
+  const weightsTotal = categories.reduce((sum, c) => sum + (c.weight ?? 0), 0);
+
+  function startAddCategory() {
+    setEditingCategoryId(null);
+    setCategoryName('');
+    setCategoryWeight('');
+  }
+
+  function startEditCategory(category: Category) {
+    setEditingCategoryId(category.id);
+    setCategoryName(category.name);
+    setCategoryWeight(category.weight != null ? String(category.weight) : '');
+  }
+
+  function handleDeleteCategory(category: Category) {
+    confirmDestructive(
+      'Delete Category',
+      `Assignments in "${category.name}" will become uncategorized, not deleted. Are you sure?`,
+      'Delete',
+      () => {
+        onDeleteCategory(category.id);
+        if (editingCategoryId === category.id) startAddCategory();
+      },
+    );
+  }
+
+  function handleSaveCategory() {
+    const name = categoryName.trim();
+    const weight = parseFloat(categoryWeight);
+    if (!name) {
+      notify('Missing info', 'Please enter a category name.');
+      return;
+    }
+    if (!Number.isFinite(weight) || weight < 0) {
+      notify('Invalid weight', 'Weight must be a number of 0 or more.');
+      return;
+    }
+
+    if (editingCategoryId) {
+      const existing = categories.find((c) => c.id === editingCategoryId);
+      if (existing) onUpdateCategory({ ...existing, name, weight });
+    } else {
+      onAddCategory(name, weight);
+    }
+    startAddCategory();
+  }
 
   function handleSave() {
     const a = parseFloat(aMin);
@@ -77,6 +140,57 @@ export default function GradeThresholdsModal({ visible, course, onCancel, onSave
               </TouchableOpacity>
               <TouchableOpacity onPress={handleSave} style={styles.saveBtn}>
                 <Text style={styles.saveText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.divider} />
+
+            <Text style={styles.sectionTitle}>Categories</Text>
+            {categories.length > 0 ? (
+              <>
+                {categories.map((category) => (
+                  <View key={category.id} style={styles.categoryRow}>
+                    <Text style={styles.categoryName} numberOfLines={1}>{category.name}</Text>
+                    <Text style={styles.categoryWeight}>{category.weight ?? 0}%</Text>
+                    <TouchableOpacity onPress={() => startEditCategory(category)} hitSlop={8}>
+                      <Ionicons name="pencil" size={15} color={colors.muted} />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => handleDeleteCategory(category)} hitSlop={8}>
+                      <Ionicons name="trash" size={15} color={colors.danger} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+                <Text style={[styles.weightsTotal, weightsTotal !== 100 && styles.weightsTotalWarning]}>
+                  Weights total {weightsTotal}%
+                </Text>
+              </>
+            ) : (
+              <Text style={styles.noCategories}>No categories yet — grades use the flat point total.</Text>
+            )}
+
+            <View style={styles.categoryForm}>
+              <TextInput
+                style={[styles.categoryInputBase, styles.categoryNameInput]}
+                placeholder="Category name"
+                value={categoryName}
+                onChangeText={setCategoryName}
+              />
+              <TextInput
+                style={[styles.categoryInputBase, styles.categoryWeightInput]}
+                placeholder="Weight %"
+                value={categoryWeight}
+                onChangeText={setCategoryWeight}
+                keyboardType="numeric"
+              />
+            </View>
+            <View style={styles.modalButtons}>
+              {editingCategoryId && (
+                <TouchableOpacity onPress={startAddCategory} style={styles.cancelBtn}>
+                  <Text style={styles.cancelText}>Cancel</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity onPress={handleSaveCategory} style={styles.saveBtn}>
+                <Text style={styles.saveText}>{editingCategoryId ? 'Update Category' : 'Add Category'}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -135,4 +249,19 @@ const styles = StyleSheet.create({
   cancelText: { color: colors.muted, fontSize: 15 },
   saveBtn: { flex: 1, padding: 14, borderRadius: 10, backgroundColor: colors.ink, alignItems: 'center' },
   saveText: { color: colors.paper, fontSize: 15, fontWeight: '600' as const },
+  divider: { height: 1, backgroundColor: colors.border, marginVertical: 20 },
+  sectionTitle: { fontSize: 16, fontFamily: fonts.display, color: colors.slate, marginBottom: 12 },
+  categoryRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
+  categoryName: { flex: 1, fontSize: 14, color: colors.slate },
+  categoryWeight: { fontSize: 13, fontFamily: fonts.mono, color: colors.muted },
+  weightsTotal: { fontSize: 12, color: colors.muted, marginBottom: 12 },
+  weightsTotalWarning: { color: colors.warning },
+  noCategories: { fontSize: 13, color: colors.muted, fontStyle: 'italic' as const, marginBottom: 12 },
+  categoryForm: { flexDirection: 'row', gap: 8 },
+  categoryInputBase: {
+    borderWidth: 1, borderColor: colors.border, borderRadius: 10,
+    padding: 10, fontSize: 15, backgroundColor: colors.card,
+  },
+  categoryNameInput: { flex: 2 },
+  categoryWeightInput: { flex: 1, textAlign: 'center' },
 });

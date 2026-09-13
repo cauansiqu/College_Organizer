@@ -19,12 +19,13 @@ import { colors, fonts, priorityColors } from "../../constants/theme";
 import {
   deleteAssignment,
   getAssignments,
+  getCategories,
   getCourses,
   saveAssignment,
   toggleAssignment,
   updateAssignment,
 } from "../../storage/storage";
-import { Assignment, Course } from "../../types";
+import { Assignment, Category, Course } from "../../types";
 import { dueLabel } from "../../utils/dates";
 
 type SortMode = "date" | "priority";
@@ -36,6 +37,7 @@ export default function AssignmentsScreen() {
 
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingAssignment, setEditingAssignment] = useState<Assignment | null>(
     null,
@@ -50,9 +52,10 @@ export default function AssignmentsScreen() {
   );
 
   async function loadData() {
-    const [a, c] = await Promise.all([getAssignments(), getCourses()]);
+    const [a, c, cat] = await Promise.all([getAssignments(), getCourses(), getCategories()]);
     setAssignments(a);
     setCourses(c);
+    setCategories(cat);
   }
 
   useFocusEffect(
@@ -288,6 +291,7 @@ export default function AssignmentsScreen() {
         visible={modalVisible}
         editing={editingAssignment}
         courses={courses}
+        categories={categories}
         onCancel={closeModal}
         onSave={handleFormSave}
         onDelete={
