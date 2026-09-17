@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, Modal, TextInput } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { getCourses, saveCourse, deleteCourse } from '../../storage/storage';
 import { Course } from '../../types';
 import { colors, fonts } from '../../constants/theme';
@@ -16,11 +16,18 @@ export default function CoursesScreen() {
   const [professor, setProfessor] = useState('');
   const [selectedColor, setSelectedColor] = useState(COLORS[0]);
 
-  useEffect(() => { loadCourses(); }, []);
-
   async function loadCourses() {
     setCourses(await getCourses());
   }
+
+  // Reload every time the Courses tab is focused, same as Home/Assignments/
+  // Grades — also sidesteps a lint rule that (correctly, if indirectly) can't
+  // tell a plain useEffect fetch-on-mount apart from a riskier setState-in-effect.
+  useFocusEffect(
+    useCallback(() => {
+      loadCourses();
+    }, []),
+  );
 
   // Opens the modal for adding only (editing moved to detail page)
   function openModal() {

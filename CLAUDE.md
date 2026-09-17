@@ -34,6 +34,7 @@ newer to React Native/JavaScript. Learning as the project is built.
 | Language | TypeScript (strict mode on) |
 | Local storage | AsyncStorage (Supabase auth session only — app data lives in Supabase) |
 | Backend | Supabase Postgres — courses/assignments/categories, scoped per user via RLS |
+| Notifications | `expo-notifications` — local (on-device) scheduled reminders only, mobile only (iOS/Android); no push server |
 | Web hosting | Vercel — live at college-organizer-virid.vercel.app (env vars and build config are set in Vercel's dashboard, not in this repo) |
 | CI | GitHub Actions (type-check + lint on push to main) |
 
@@ -66,6 +67,8 @@ app/                       Every screen (Expo Router: folder names = routes)
                            high priority, course chips, sign out
     courses.tsx            COURSES tab — list/add/delete courses
     assignments.tsx        ASSIGNMENTS tab — calendar + sortable checklist
+    grades.tsx             GRADES tab — per-course weighted averages, letter
+                           grades, category management
   course/
     [id].tsx               Course detail screen (dynamic route)
 
@@ -78,14 +81,20 @@ components/
                            tapping a calendar day
   AssignmentDetailModal.tsx  Single-assignment detail popup (opened from the
                            calendar or day list) — mark complete, edit, delete
+  GradeThresholdsModal.tsx  Edit a course's letter-grade cutoffs and manage
+                           its weighted grade categories (add/edit/delete)
 
 storage/storage.ts         ALL data reads/writes. Every screen goes through this
                            file — queries Supabase, scoped to the logged-in user.
-types/index.ts             Course and Assignment type definitions
+types/index.ts             Course, Assignment, and Category type definitions
 constants/theme.ts         All colors and fonts, defined once
 utils/dates.ts             parseLocalDate() — the ONLY correct way to parse dates
 utils/alerts.ts            notify() / confirmDestructive() — cross-platform alerts
+utils/grades.ts            Grade math — percentage/letter-grade calculation,
+                           weighted category averaging
 lib/subapase.ts            Supabase client (note: filename is misspelled)
+lib/notifications.ts       Due-date reminder scheduling via expo-notifications
+                           (mobile only — no-ops on web, see gotcha #10)
 
 supabase/migrations/       Version-controlled schema — source of truth, see gotcha #8
 ```
@@ -152,6 +161,20 @@ because the CI runner's default Node 20 bundles npm 10, which can't read a
 `.github/workflows/CI.yml` pins `node-version: 24` to match the local npm
 version — keep the two in sync if either one is upgraded.
 
+### 10. Due-date reminders are local-only and mobile-only, on purpose
+`lib/notifications.ts` schedules reminders via `expo-notifications`'
+on-device scheduling — there's no push server or service worker involved.
+It no-ops entirely on web (`Platform.OS === 'web'`): a true background push
+on web would need standing up a push server, which is out of scope for a
+personal project, and the Home tab's dashboard already surfaces due-soon
+items when the page is open anyway. Don't "fix" the web no-op thinking it's
+a bug. Each reminder uses a deterministic identifier
+(`` `${assignmentId}-${days}d` ``) instead of a lookup table, so
+`cancelAssignmentReminders()` can always cancel-by-id without first checking
+what's scheduled — but this also means the app assumes it's the only thing
+scheduling local notifications; a future feature that schedules its own
+notifications must use different identifiers or it'll collide with these.
+
 ---
 
 ## Current state
@@ -161,7 +184,9 @@ priority dots, delete-from-edit-modal, clickable dashboard sections,
 independently scrollable checklist, calendar day-list and assignment-detail
 popups, dimmed completed assignments on the calendar, login/signup screens
 gating the whole app (Supabase Auth, email + password, email confirmation
-required on signup), sign out from the Home tab.
+required on signup), sign out from the Home tab, a Grades tab with per-course
+weighted averages/letter grades and category management, and due-date
+reminder notifications on mobile (5/3/1 days before, plus due-day morning).
 
 **Data now lives in Supabase Postgres, scoped per user.** `storage.ts` reads
 and writes `courses`/`assignments` through the logged-in user's session, and
@@ -220,11 +245,6 @@ a category has no meaning without its course.
 RLS is enabled on all three tables, with `select`/`insert`/`update`/`delete`
 policies scoping every row to `auth.uid() = user_id`.
 
-**Schema only, no UI yet:** `points_earned`/`points_possible` on
-`assignments`, the `grade_*_min` thresholds on `courses`, and the whole
-`categories` table + `assignments.category_id` exist for the planned Grades
-page (roadmap item 8) but nothing reads or writes them today.
-
 ---
 
 ## Roadmap (in order)
@@ -236,6 +256,6 @@ page (roadmap item 8) but nothing reads or writes them today.
 5. ~~Calendar event preview popup (Google Calendar style)~~ — done
 6. ~~Login/signup screens (Supabase Auth)~~ — done
 7. ~~Migrate `storage.ts` to Supabase (add `user_id` + RLS + `grade` column)~~ — done
-8. Grades page (per-assignment grades, computed course averages)
-9. Due-date notifications (3 days / 1 day before)
+8. ~~Grades page (per-assignment grades, computed course averages)~~ — done
+9. ~~Due-date notifications (3 days / 1 day before)~~ — done
 10. Full visual redesign pass (do this LAST, once all screens exist)

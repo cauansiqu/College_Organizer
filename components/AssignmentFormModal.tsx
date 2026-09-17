@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Modal, ScrollView } from 'react-native';
 import DatePickerField from './DatePickerField';
 import { notify } from '../utils/alerts';
@@ -47,32 +47,38 @@ export default function AssignmentFormModal({
   const [categoryId, setCategoryId] = useState<string | null>(null);
 
   // Every time the modal opens, either pre-fill it (editing an existing
-  // assignment) or reset it to blank (adding a new one).
-  useEffect(() => {
-    if (!visible) return;
-    if (editing) {
-      setTitle(editing.title);
-      setDueDate(editing.dueDate);
-      setNotes(editing.notes);
-      setPriority(editing.priority);
-      setCourseId(editing.courseId);
-      setPointsEarned(editing.pointsEarned != null ? String(editing.pointsEarned) : '');
-      setPointsPossible(editing.pointsPossible != null ? String(editing.pointsPossible) : '');
-      setCategoryId(editing.categoryId);
-    } else {
-      setTitle('');
-      setDueDate('');
-      setNotes('');
-      setPriority('Medium');
-      setCourseId(defaultCourseId ?? (courses && courses.length > 0 ? courses[0].id : ''));
-      setPointsEarned('');
-      setPointsPossible('');
-      setCategoryId(null);
+  // assignment) or reset it to blank (adding a new one). Compares against
+  // the last-seen [visible, editing] pair during render — React's endorsed
+  // alternative to an effect for this — so re-renders in between don't
+  // re-trigger it, without needing an exhaustive-deps escape hatch.
+  const [seen, setSeen] = useState<{ visible: boolean; editing: Assignment | null }>({
+    visible,
+    editing,
+  });
+  if (visible !== seen.visible || editing !== seen.editing) {
+    setSeen({ visible, editing });
+    if (visible) {
+      if (editing) {
+        setTitle(editing.title);
+        setDueDate(editing.dueDate);
+        setNotes(editing.notes);
+        setPriority(editing.priority);
+        setCourseId(editing.courseId);
+        setPointsEarned(editing.pointsEarned != null ? String(editing.pointsEarned) : '');
+        setPointsPossible(editing.pointsPossible != null ? String(editing.pointsPossible) : '');
+        setCategoryId(editing.categoryId);
+      } else {
+        setTitle('');
+        setDueDate('');
+        setNotes('');
+        setPriority('Medium');
+        setCourseId(defaultCourseId ?? (courses && courses.length > 0 ? courses[0].id : ''));
+        setPointsEarned('');
+        setPointsPossible('');
+        setCategoryId(null);
+      }
     }
-    // Deliberately only [visible, editing]: this should re-run when the modal
-    // opens or which assignment we're editing changes, not on every re-render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, editing]);
+  }
 
   const saveColor = accentColor ?? colors.ink;
 

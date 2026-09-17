@@ -2,6 +2,7 @@ import { Stack } from 'expo-router';
 import { View, ActivityIndicator, StyleSheet, Platform } from 'react-native';
 import { colors, fonts } from '../constants/theme';
 import { supabase } from '../lib/subapase';
+import { setupNotifications } from '../lib/notifications';
 import { useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { SpeedInsights } from '@vercel/speed-insights/react';
@@ -23,6 +24,16 @@ export default function RootLayout() {
 
     return () => listener.subscription.unsubscribe();
   }, []);
+
+  // Separate from the auth-tracking effect above so notification setup
+  // stays independent of session-state bookkeeping. Only runs once a
+  // session actually exists (not on the signed-out or not-yet-resolved
+  // states), since there's nothing to remind a signed-out user about.
+  useEffect(() => {
+    if (session) {
+      setupNotifications();
+    }
+  }, [session]);
 
   if (session === undefined) {
     return (

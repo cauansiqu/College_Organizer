@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { View, Text, TouchableOpacity, Platform, TextInput, StyleSheet } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
@@ -46,10 +46,15 @@ export default function DatePickerField({ value, onChange, label }: Props) {
   const [webText, setWebText] = useState(() => toMDY(value));
 
   // If `value` changes from outside (e.g. opening Edit on a different
-  // assignment), keep the textbox showing the right thing.
-  useEffect(() => {
+  // assignment), keep the textbox showing the right thing. Compared against
+  // the last-seen value during render — React's endorsed alternative to an
+  // effect for deriving state from a prop — instead of updating it after
+  // the fact in an effect.
+  const [seenValue, setSeenValue] = useState(value);
+  if (value !== seenValue) {
+    setSeenValue(value);
     setWebText(toMDY(value));
-  }, [value]);
+  }
 
   // Parse stored string back into a Date for the picker
   const dateValue = value ? new Date(value + 'T12:00:00') : new Date();

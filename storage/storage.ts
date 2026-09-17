@@ -1,4 +1,5 @@
 import { supabase } from "../lib/subapase";
+import { cancelAssignmentReminders, scheduleAssignmentReminders } from "../lib/notifications";
 import { Course, Assignment, Category } from "../types";
 
 // The DB uses snake_case columns; the app's types use camelCase. These
@@ -155,20 +156,23 @@ export async function saveAssignment(assignment: Assignment): Promise<Assignment
         .select()
         .single();
     if (error) throw error;
-    return assignmentFromRow(data);
+    const saved = assignmentFromRow(data);
+    await scheduleAssignmentReminders(saved);
+    return saved;
 }
 
 // Delete an assignment by ID
 export async function deleteAssignment(id: string): Promise<void> {
     const { error } = await supabase.from("assignments").delete().eq("id", id);
     if (error) throw error;
+    await cancelAssignmentReminders(id);
 }
 
 // Toggle an assignment's completion status
 export async function toggleAssignment(id: string): Promise<void> {
     const { data: current, error: fetchError } = await supabase
         .from("assignments")
-        .select("completed")
+        .select("*")
         .eq("id", id)
         .single();
     if (fetchError) throw fetchError;
@@ -178,6 +182,13 @@ export async function toggleAssignment(id: string): Promise<void> {
         .update({ completed: !current.completed })
         .eq("id", id);
     if (error) throw error;
+
+    if (current.completed) {
+        // Was completed, now un-completing — reminders should exist again.
+        await scheduleAssignmentReminders(assignmentFromRow({ ...current, completed: false }));
+    } else {
+        await cancelAssignmentReminders(id);
+    }
 }
 
 // Replace a course with an updated version
@@ -214,6 +225,12 @@ export async function updateAssignment(updated: Assignment): Promise<void> {
         })
         .eq("id", updated.id);
     if (error) throw error;
+
+    if (updated.completed) {
+        await cancelAssignmentReminders(updated.id);
+    } else {
+        await scheduleAssignmentReminders(updated);
+    }
 }
 
 // --- CATEGORIES ---

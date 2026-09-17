@@ -15,7 +15,7 @@ export type Assignment = {
     id: string;         // Unique identifier
     courseId: string;   // ID of the course this assignment belongs to
     title: string;      // Title of the assignment
-    dueDate: string;    // Due date in ISO format (e.g., "2024-09-30T23:59:00Z")
+    dueDate: string;    // Date-only string, "YYYY-MM-DD" (see utils/dates.ts)
     priority: "Low" | "Medium" | "High";  // Priority level of the assignment
     completed: boolean;     // Completion status of the assignment
     notes: string;          // Additional notes for the assignment

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, useWindowDimensions } from 'react-native';
 import { Assignment, Course } from '../types';
 import { colors, fonts, priorityColors, tintColor, darkenColor } from '../constants/theme';
@@ -24,9 +24,17 @@ export default function AssignmentDetailModal({
   // doesn't blank out mid slide-down — the parent sets `assignment` to null
   // at the same moment `visible` flips to false.
   const [display, setDisplay] = useState<{ a: Assignment; c: Course | undefined } | null>(null);
-  useEffect(() => {
+  // Compares against the last-seen [assignment, course] pair during render —
+  // React's endorsed alternative to an effect for deriving state from props —
+  // instead of updating `display` in an effect after the fact.
+  const [seen, setSeen] = useState<{ assignment: Assignment | null; course: Course | undefined }>({
+    assignment,
+    course,
+  });
+  if (assignment !== seen.assignment || course !== seen.course) {
+    setSeen({ assignment, course });
     if (assignment) setDisplay({ a: assignment, c: course });
-  }, [assignment, course]);
+  }
 
   const shown = display?.a;
   const shownCourse = display?.c;

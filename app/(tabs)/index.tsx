@@ -15,18 +15,18 @@ export default function HomeScreen() {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
 
+  async function loadData() {
+    const [a, c] = await Promise.all([getAssignments(), getCourses()]);
+    setAssignments(a);
+    setCourses(c);
+  }
+
   // Reload data every time the Home tab is focused
   useFocusEffect(
     useCallback(() => {
       loadData();
     }, [])
   );
-
-  async function loadData() {
-    const [a, c] = await Promise.all([getAssignments(), getCourses()]);
-    setAssignments(a);
-    setCourses(c);
-  }
 
   function getCourse(courseId: string) {
     return courses.find(c => c.id === courseId);

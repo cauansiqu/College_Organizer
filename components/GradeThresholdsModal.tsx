@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Modal, useWindowDimensions } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Category, Course } from '../types';
@@ -37,16 +37,23 @@ export default function GradeThresholdsModal({
   const [categoryName, setCategoryName] = useState('');
   const [categoryWeight, setCategoryWeight] = useState('');
 
-  useEffect(() => {
-    if (!visible || !course) return;
-    setAMin(String(course.gradeAMin));
-    setBMin(String(course.gradeBMin));
-    setCMin(String(course.gradeCMin));
-    setDMin(String(course.gradeDMin));
-    setEditingCategoryId(null);
-    setCategoryName('');
-    setCategoryWeight('');
-  }, [visible, course]);
+  // Compares against the last-seen [visible, course] pair during render —
+  // React's endorsed alternative to an effect for this — so opening the
+  // modal (or switching which course it's editing) resets the form without
+  // re-running on every re-render in between.
+  const [seen, setSeen] = useState<{ visible: boolean; course: Course | null }>({ visible, course });
+  if (visible !== seen.visible || course !== seen.course) {
+    setSeen({ visible, course });
+    if (visible && course) {
+      setAMin(String(course.gradeAMin));
+      setBMin(String(course.gradeBMin));
+      setCMin(String(course.gradeCMin));
+      setDMin(String(course.gradeDMin));
+      setEditingCategoryId(null);
+      setCategoryName('');
+      setCategoryWeight('');
+    }
+  }
 
   const weightsTotal = categories.reduce((sum, c) => sum + (c.weight ?? 0), 0);
 
