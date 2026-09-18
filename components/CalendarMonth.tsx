@@ -135,7 +135,7 @@ export default function CalendarMonth({ assignments, courses, onDayPress, onAssi
               onPress={() => { if (items.length > 0) onDayPress?.(key); }}
             >
               <Text style={[styles.dayNum, isToday && styles.dayNumToday]}>{d.getDate()}</Text>
-              {items.slice(0, 2).map(a => (
+              {items.slice(0, 3).map(a => (
                 <TouchableOpacity
                   key={a.id}
                   style={[styles.chip, { backgroundColor: chipColor(a) }]}
@@ -144,9 +144,9 @@ export default function CalendarMonth({ assignments, courses, onDayPress, onAssi
                   <Text style={[styles.chipText, a.completed && styles.chipTextDone]} numberOfLines={1}>{a.title}</Text>
                 </TouchableOpacity>
               ))}
-              {items.length > 2 && (
+              {items.length > 3 && (
                 <TouchableOpacity onPress={() => onDayPress?.(key)} hitSlop={4}>
-                  <Text style={styles.moreLabel}>+{items.length - 2} more</Text>
+                  <Text style={styles.moreLabel}>+{items.length - 3} more</Text>
                 </TouchableOpacity>
               )}
             </TouchableOpacity>
@@ -165,10 +165,13 @@ const styles = StyleSheet.create({
   weekdayRow: { flexDirection: 'row', marginBottom: 4 },
   weekdayLabel: { flex: 1, textAlign: 'center', fontFamily: fonts.mono, fontSize: 11, color: colors.muted },
   grid: { flexDirection: 'row', flexWrap: 'wrap' },
-  dayCellEmpty: { width: `${100 / 7}%`, minHeight: 64 },
+  dayCellEmpty: {
+    width: `${100 / 7}%`, minHeight: 88,
+    borderWidth: 1, borderColor: colors.border,
+  },
   dayCell: {
-    width: `${100 / 7}%`, minHeight: 64, padding: 3,
-    backgroundColor: colors.card, borderRadius: 6, borderWidth: 1, borderColor: 'transparent',
+    width: `${100 / 7}%`, minHeight: 88, padding: 3,
+    backgroundColor: colors.card, borderRadius: 6, borderWidth: 1, borderColor: colors.border,
   },
   dayCellToday: { borderColor: colors.ink },
   dayNum: { fontSize: 11, color: colors.slate, marginBottom: 2 },

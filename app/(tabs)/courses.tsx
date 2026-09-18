@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, FlatList, Modal, TextInput } 
 import { useRouter, useFocusEffect } from 'expo-router';
 import { getCourses, saveCourse, deleteCourse } from '../../storage/storage';
 import { Course } from '../../types';
-import { colors, fonts } from '../../constants/theme';
+import { colors, fonts, tintColor } from '../../constants/theme';
 import { notify, confirmDestructive } from '../../utils/alerts';
 
 const COLORS = ['#4A90E2', '#E74C3C', '#2ECC71', '#F39C12', '#9B59B6', '#1ABC9C'];
@@ -81,7 +81,10 @@ export default function CoursesScreen() {
         keyExtractor={item => item.id}
         renderItem={({ item }) => (
           <TouchableOpacity
-            style={[styles.card, { borderLeftColor: item.color }]}
+            style={[
+              styles.card,
+              { backgroundColor: tintColor(item.color), borderLeftColor: item.color },
+            ]}
             onPress={() => router.push(`/course/${item.id}` as any)}  // tap = go to detail
             onLongPress={() => handleDelete(item.id)}           // hold = delete
           >
@@ -151,7 +154,7 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 18, fontFamily: fonts.display, color: colors.slate },
   emptySubText: { fontSize: 14, color: colors.muted, marginTop: 6 },
   card: {
-    backgroundColor: colors.card, borderRadius: 10, padding: 16,
+    borderRadius: 10, padding: 16,
     flexDirection: 'row', alignItems: 'center',
     borderLeftWidth: 3, borderWidth: 1, borderColor: colors.border, borderLeftColor: colors.border,
   },

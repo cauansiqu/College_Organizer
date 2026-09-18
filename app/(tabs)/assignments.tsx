@@ -15,7 +15,7 @@ import AssignmentFormModal, {
 } from "../../components/AssignmentFormModal";
 import CalendarMonth from "../../components/CalendarMonth";
 import DayListSheet from "../../components/DayListSheet";
-import { colors, fonts, priorityColors } from "../../constants/theme";
+import { colors, fonts, priorityColors, tintColor } from "../../constants/theme";
 import {
   deleteAssignment,
   getAssignments,
@@ -210,7 +210,10 @@ export default function AssignmentsScreen() {
               style={[
                 styles.card,
                 item.completed && styles.cardDone,
-                { borderLeftColor: course?.color ?? colors.muted },
+                {
+                  backgroundColor: tintColor(course?.color ?? colors.muted),
+                  borderLeftColor: course?.color ?? colors.muted,
+                },
               ]}
               onPress={() => openModal(item)}
               onLongPress={() => handleDelete(item.id)}
@@ -364,7 +367,6 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 16, fontFamily: fonts.display, color: colors.slate },
   emptySubText: { fontSize: 13, color: colors.muted, marginTop: 6 },
   card: {
-    backgroundColor: colors.card,
     borderRadius: 8,
     flexDirection: "row",
     alignItems: "center",

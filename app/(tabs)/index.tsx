@@ -5,7 +5,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { getAssignments, getCourses } from '../../storage/storage';
 import { parseLocalDate } from '@/utils/dates';
 import { Assignment, Course } from '../../types';
-import { colors, fonts, priorityColors } from '../../constants/theme';
+import { colors, fonts, priorityColors, darkenColor, tintColor } from '../../constants/theme';
 import { supabase } from '../../lib/subapase';
 import { notify } from '../../utils/alerts';
 
@@ -100,30 +100,25 @@ export default function HomeScreen() {
 
       {/* --- Summary Stats Row --- */}
       <View style={styles.statsRow}>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{courses.length}</Text>
-          <Text style={styles.statLabel}>Courses</Text>
+        <View style={[styles.statCard, styles.statCardInk]}>
+          <Text style={[styles.statNumber, styles.statTextLight]}>{courses.length}</Text>
+          <Text style={[styles.statLabel, styles.statTextLight]}>Courses</Text>
         </View>
-        {/* Pending turns red if anything is overdue */}
-        <View style={styles.statCard}>
-          <Text style={[styles.statNumber, overdue.length > 0 && { color: colors.danger }]}>
-            {incomplete.length}
-          </Text>
-          <Text style={styles.statLabel}>Pending</Text>
+        <View style={[styles.statCard, styles.statCardAmber]}>
+          <Text style={[styles.statNumber, styles.statTextInk]}>{incomplete.length}</Text>
+          <Text style={[styles.statLabel, styles.statTextInk]}>Pending</Text>
         </View>
-        <View style={styles.statCard}>
-          <Text style={[styles.statNumber, highPriority.length > 0 && { color: colors.danger }]}>
-            {highPriority.length}
-          </Text>
-          <Text style={styles.statLabel}>High Priority</Text>
+        <View style={[styles.statCard, styles.statCardDanger]}>
+          <Text style={[styles.statNumber, styles.statTextLight]}>{highPriority.length}</Text>
+          <Text style={[styles.statLabel, styles.statTextLight]}>High Priority</Text>
         </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>
+        <View style={[styles.statCard, styles.statCardSuccess]}>
+          <Text style={[styles.statNumber, styles.statTextLight]}>
             {assignments.length > 0
               ? Math.round((assignments.filter(a => a.completed).length / assignments.length) * 100)
               : 0}%
           </Text>
-          <Text style={styles.statLabel}>Done</Text>
+          <Text style={[styles.statLabel, styles.statTextLight]}>Done</Text>
         </View>
       </View>
 
@@ -131,13 +126,24 @@ export default function HomeScreen() {
       {overdue.length > 0 && (
         <View>
           <View style={styles.sectionHeader}>
-            <Ionicons name="alert-circle" size={16} color={colors.danger} />
+            <View style={[styles.sectionIconBadge, styles.sectionIconBadgeOverdue]}>
+              <Ionicons name="alert-circle" size={14} color={darkenColor(colors.danger, 0.25)} />
+            </View>
             <Text style={styles.sectionTitle}>Overdue</Text>
           </View>
           {overdue.map(item => {
             const course = getCourse(item.courseId);
             return (
-              <View key={item.id} style={[styles.card, { borderLeftColor: colors.danger }]}>
+              <View
+                key={item.id}
+                style={[
+                  styles.card,
+                  {
+                    backgroundColor: tintColor(course?.color ?? colors.muted),
+                    borderLeftColor: course?.color ?? colors.muted,
+                  },
+                ]}
+              >
                 <View style={styles.cardContent}>
                   <Text style={styles.cardTitle}>{item.title}</Text>
                   <Text style={styles.cardCourse}>{course?.name}</Text>
@@ -155,7 +161,9 @@ export default function HomeScreen() {
       {/* --- Due This Week --- */}
       <View>
         <View style={styles.sectionHeader}>
-          <Ionicons name="calendar-outline" size={16} color={colors.slate} />
+          <View style={[styles.sectionIconBadge, styles.sectionIconBadgeDueThisWeek]}>
+            <Ionicons name="calendar-outline" size={14} color="#185FA5" />
+          </View>
           <Text style={styles.sectionTitle}>Due this week</Text>
         </View>
         {upcoming.length === 0 ? (
@@ -171,7 +179,10 @@ export default function HomeScreen() {
                 onPress={() => router.push('/assignments')}
                 style={({ pressed }) => [
                   styles.card,
-                  { borderLeftColor: course?.color ?? colors.muted },
+                  {
+                    backgroundColor: tintColor(course?.color ?? colors.muted),
+                    borderLeftColor: course?.color ?? colors.muted,
+                  },
                   pressed && styles.pressedCard,
                 ]}
               >
@@ -201,7 +212,9 @@ export default function HomeScreen() {
       {highPriority.length > 0 && (
         <View>
           <View style={styles.sectionHeader}>
-            <Ionicons name="flag" size={15} color={colors.danger} />
+            <View style={[styles.sectionIconBadge, styles.sectionIconBadgeHighPriority]}>
+              <Ionicons name="flag" size={14} color={colors.danger} />
+            </View>
             <Text style={styles.sectionTitle}>High priority</Text>
           </View>
           {highPriority.map(item => {
@@ -212,7 +225,10 @@ export default function HomeScreen() {
                 onPress={() => router.push('/assignments')}
                 style={({ pressed }) => [
                   styles.card,
-                  { borderLeftColor: colors.danger },
+                  {
+                    backgroundColor: tintColor(course?.color ?? colors.muted),
+                    borderLeftColor: course?.color ?? colors.muted,
+                  },
                   pressed && styles.pressedCard,
                 ]}
               >
@@ -280,16 +296,28 @@ const styles = StyleSheet.create({
   signOutText: { fontSize: 13, color: colors.muted },
   statsRow: { flexDirection: 'row', gap: 10 },
   statCard: {
-    flex: 1, backgroundColor: colors.card, borderRadius: 12,
-    padding: 12, alignItems: 'center', borderWidth: 1, borderColor: colors.border,
+    flex: 1, borderRadius: 12, padding: 12, alignItems: 'center',
   },
-  statNumber: { fontSize: 24, fontFamily: fonts.mono, fontWeight: '700' as const, color: colors.slate },
-  statLabel: { fontSize: 11, color: colors.muted, marginTop: 2, textAlign: 'center' },
+  statCardInk: { backgroundColor: colors.ink },
+  statCardAmber: { backgroundColor: colors.amber },
+  statCardDanger: { backgroundColor: colors.danger },
+  statCardSuccess: { backgroundColor: colors.success },
+  statTextLight: { color: '#fff' },
+  statTextInk: { color: colors.ink },
+  statNumber: { fontSize: 24, fontFamily: fonts.mono, fontWeight: '700' as const },
+  statLabel: { fontSize: 11, marginTop: 2, textAlign: 'center' },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 },
   sectionTitle: { fontSize: 16, fontFamily: fonts.display, color: colors.slate },
+  sectionIconBadge: {
+    width: 24, height: 24, borderRadius: 12,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  sectionIconBadgeDueThisWeek: { backgroundColor: '#E6F1FB' },
+  sectionIconBadgeHighPriority: { backgroundColor: '#FCEBEB' },
+  sectionIconBadgeOverdue: { backgroundColor: darkenColor('#FCEBEB', 0.15) },
   emptySection: { fontSize: 14, color: colors.muted, fontStyle: 'italic' },
   card: {
-    backgroundColor: colors.card, borderRadius: 10, padding: 14,
+    borderRadius: 10, padding: 14,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     borderLeftWidth: 3, marginBottom: 10,
   },
