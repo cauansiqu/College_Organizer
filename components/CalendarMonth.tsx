@@ -24,6 +24,10 @@ export default function CalendarMonth({ assignments, courses, onDayPress, onAssi
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
 
+  // Narrow screens only: which view the user picked via the toggle.
+  // Ignored on wide screens, which always show the month grid.
+  const [mobileView, setMobileView] = useState<'week' | 'month'>('week');
+
   const courseColor = (courseId: string) =>
     courses.find(c => c.id === courseId)?.color ?? colors.muted;
 
@@ -49,45 +53,47 @@ export default function CalendarMonth({ assignments, courses, onDayPress, onAssi
     setCursor(prev => new Date(prev.getFullYear(), prev.getMonth() + delta, 1));
   }
 
-  if (isNarrow) {
-    // Week strip: today + next 6 days, horizontally
-    const days = Array.from({ length: 7 }, (_, i) => {
-      const d = new Date();
-      d.setDate(d.getDate() + i);
-      return d;
-    });
-    return (
-      <View style={styles.weekStrip}>
-        {days.map(d => {
-          const key = toLocalISODate(d);
-          const items = byDay[key] ?? [];
-          return (
-            <TouchableOpacity
-              key={key}
-              style={styles.weekCell}
-              onPress={() => { if (items.length > 0) onDayPress?.(key); }}
-            >
-              <Text style={styles.weekDayLabel}>{WEEKDAY_LABELS[d.getDay()]}</Text>
-              <Text style={styles.weekDateNum}>{d.getDate()}</Text>
-              {items.slice(0, 1).map(a => (
-                <TouchableOpacity
-                  key={a.id}
-                  style={[styles.weekChip, { backgroundColor: chipColor(a) }]}
-                  onPress={() => onAssignmentPress?.(a)}
-                  hitSlop={8}
-                />
-              ))}
-              {items.length > 1 && (
-                <TouchableOpacity onPress={() => onDayPress?.(key)} hitSlop={8}>
-                  <Text style={styles.weekMore}>+{items.length - 1}</Text>
-                </TouchableOpacity>
-              )}
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-    );
-  }
+  // Both views are built as JSX up front, then the single return at the
+  // bottom picks one — this lets narrow screens reach the exact same
+  // month-grid render path that wide screens use, instead of duplicating it.
+
+  // Week strip: today + next 6 days, horizontally
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() + i);
+    return d;
+  });
+  const weekStrip = (
+    <View style={styles.weekStrip}>
+      {days.map(d => {
+        const key = toLocalISODate(d);
+        const items = byDay[key] ?? [];
+        return (
+          <TouchableOpacity
+            key={key}
+            style={styles.weekCell}
+            onPress={() => { if (items.length > 0) onDayPress?.(key); }}
+          >
+            <Text style={styles.weekDayLabel}>{WEEKDAY_LABELS[d.getDay()]}</Text>
+            <Text style={styles.weekDateNum}>{d.getDate()}</Text>
+            {items.slice(0, 1).map(a => (
+              <TouchableOpacity
+                key={a.id}
+                style={[styles.weekChip, { backgroundColor: chipColor(a) }]}
+                onPress={() => onAssignmentPress?.(a)}
+                hitSlop={8}
+              />
+            ))}
+            {items.length > 1 && (
+              <TouchableOpacity onPress={() => onDayPress?.(key)} hitSlop={8}>
+                <Text style={styles.weekMore}>+{items.length - 1}</Text>
+              </TouchableOpacity>
+            )}
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
 
   // Month grid
   const year = cursor.getFullYear();
@@ -102,7 +108,7 @@ export default function CalendarMonth({ assignments, courses, onDayPress, onAssi
 
   const todayKey = toLocalISODate(new Date());
 
-  return (
+  const monthGrid = (
     <View>
       <View style={styles.monthHeader}>
         <Text style={styles.monthLabel}>{MONTH_NAMES[month]} {year}</Text>
@@ -155,6 +161,25 @@ export default function CalendarMonth({ assignments, courses, onDayPress, onAssi
       </View>
     </View>
   );
+
+  // Wide screens: always the month grid, no toggle (unchanged behavior).
+  if (!isNarrow) return monthGrid;
+
+  // Narrow screens: plain-text toggle above whichever view is active.
+  return (
+    <View>
+      <TouchableOpacity
+        style={styles.viewToggleButton}
+        onPress={() => setMobileView(v => (v === 'week' ? 'month' : 'week'))}
+        hitSlop={8}
+      >
+        <Text style={styles.viewToggle}>
+          {mobileView === 'week' ? 'Month view' : 'Week view'}
+        </Text>
+      </TouchableOpacity>
+      {mobileView === 'week' ? weekStrip : monthGrid}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -186,4 +211,6 @@ const styles = StyleSheet.create({
   weekDateNum: { fontSize: 14, color: colors.slate, marginVertical: 2 },
   weekChip: { width: 6, height: 6, borderRadius: 3, marginTop: 2 },
   weekMore: { fontSize: 8, color: colors.muted },
+  viewToggleButton: { alignSelf: 'flex-end', marginBottom: 4 },
+  viewToggle: { fontFamily: fonts.mono, fontSize: 12, color: colors.slate },
 });

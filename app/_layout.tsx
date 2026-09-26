@@ -2,7 +2,8 @@ import { Stack } from 'expo-router';
 import { View, ActivityIndicator, StyleSheet, Platform } from 'react-native';
 import { colors, fonts } from '../constants/theme';
 import { supabase } from '../lib/subapase';
-import { setupNotifications } from '../lib/notifications';
+import { setupNotifications, scheduleAssignmentReminders } from '../lib/notifications';
+import { getAssignments, getCourses } from '../storage/storage';
 import { useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { SpeedInsights } from '@vercel/speed-insights/react';
@@ -29,10 +30,56 @@ export default function RootLayout() {
   // stays independent of session-state bookkeeping. Only runs once a
   // session actually exists (not on the signed-out or not-yet-resolved
   // states), since there's nothing to remind a signed-out user about.
+  // After setup, it also sweeps every incomplete assignment and reschedules
+  // its reminders (see the self-heal comment below). Skipped entirely on web,
+  // where notifications are a deliberate no-op (CLAUDE.md gotcha #10) — this
+  // avoids two pointless Supabase queries on every web page load.
   useEffect(() => {
-    if (session) {
-      setupNotifications();
-    }
+    if (!session || Platform.OS === 'web') return;
+    (async () => {
+      try {
+        await setupNotifications();
+
+        const [assignments, courses] = await Promise.all([
+          getAssignments(),
+          getCourses(),
+        ]);
+        const courseNameById = new Map(courses.map(c => [c.id, c.name]));
+
+        // Self-heal: reschedule reminders for every incomplete
+        // assignment. scheduleAssignmentReminders already cancels any
+        // existing reminders for that assignment first and skips any
+        // offset whose time has already passed, so this is safe to run
+        // on every launch — it's a no-op for assignments that already
+        // have correct reminders, and it recovers anything that's
+        // missing (e.g. after an Expo Go reinstall wipes scheduled
+        // notifications).
+        //
+        // Soonest-due first, scheduled ONE AT A TIME: if the total ever nears
+        // iOS's 64-pending-notification cap, the most urgent assignments get
+        // their reminders in first. (Promise.allSettled would start every call
+        // at once, so sorting wouldn't actually control the order.) ISO
+        // YYYY-MM-DD strings sort correctly with localeCompare.
+        const incomplete = assignments
+          .filter(a => !a.completed)
+          .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+
+        for (const a of incomplete) {
+          // Per-assignment try/catch so one failure doesn't stop the rest
+          // (same guarantee Promise.allSettled would give).
+          try {
+            await scheduleAssignmentReminders(a, courseNameById.get(a.courseId));
+          } catch (e) {
+            console.warn(`Reminder backfill failed for "${a.title}":`, e);
+          }
+        }
+      } catch (e) {
+        // e.g. offline at launch so the Supabase fetch throws. Without this
+        // catch it'd be an unhandled rejection (red LogBox in dev). Harmless
+        // to skip — the sweep runs again on the next launch.
+        console.warn('Reminder backfill skipped:', e);
+      }
+    })();
   }, [session]);
 
   if (session === undefined) {
