@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity,
          Modal, TextInput } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
@@ -8,12 +8,15 @@ import { Course, Assignment, Category } from '../../types';
 import AssignmentFormModal, { AssignmentFormValues } from '../../components/AssignmentFormModal';
 import { notify, confirmDestructive } from '../../utils/alerts';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { colors, fonts, priorityColors } from '../../constants/theme';
+import { fonts, priorityColors, type ThemeColors } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 
 const PRIORITY_COLORS = priorityColors;
 const COLORS = ['#4A90E2', '#E74C3C', '#2ECC71', '#F39C12', '#9B59B6', '#1ABC9C'];
 
 export default function CourseDetailScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
 
@@ -264,6 +267,8 @@ function TextInputField({ placeholder, value, onChangeText, multiline }: {
   onChangeText: (text: string) => void;
   multiline?: boolean;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <TextInput
       style={[styles.input, multiline && { height: 80 }]}
@@ -275,7 +280,7 @@ function TextInputField({ placeholder, value, onChangeText, multiline }: {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.paper },
   banner: { padding: 20, paddingTop: 24, paddingBottom: 20 },
   bannerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
@@ -316,7 +321,7 @@ const styles = StyleSheet.create({
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
   modalBox: { backgroundColor: colors.paper, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40 },
   modalTitle: { fontSize: 19, fontFamily: fonts.display, marginBottom: 16, color: colors.slate },
-  input: { borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 12, fontSize: 15, marginBottom: 12, backgroundColor: colors.card },
+  input: { borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 12, fontSize: 15, marginBottom: 12, backgroundColor: colors.card, color: colors.inputText },
   label: { fontSize: 13, color: colors.muted, marginBottom: 8 },
   colorRow: { flexDirection: 'row', gap: 12, marginBottom: 20 },
   colorCircle: { width: 32, height: 32, borderRadius: 16 },
@@ -324,6 +329,6 @@ const styles = StyleSheet.create({
   modalButtons: { flexDirection: 'row', gap: 12 },
   cancelBtn: { flex: 1, padding: 14, borderRadius: 10, borderWidth: 1, borderColor: colors.border, alignItems: 'center' },
   cancelText: { color: colors.muted, fontSize: 15 },
-  saveBtn: { flex: 1, padding: 14, borderRadius: 10, backgroundColor: colors.ink, alignItems: 'center' },
-  saveText: { color: colors.paper, fontSize: 15, fontWeight: '600' as const },
+  saveBtn: { flex: 1, padding: 14, borderRadius: 10, backgroundColor: colors.primary, alignItems: 'center' },
+  saveText: { color: colors.onPrimary, fontSize: 15, fontWeight: '600' as const },
 });

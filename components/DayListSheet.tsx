@@ -1,6 +1,8 @@
+import { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, Modal, useWindowDimensions } from 'react-native';
 import { Assignment, Course } from '../types';
-import { colors, fonts, priorityColors, tintColor, darkenColor, fadeColor } from '../constants/theme';
+import { fonts, priorityColors, tintColor, tintTextColor, fadeColor, type ThemeColors } from '../constants/theme';
+import { useTheme } from '../context/ThemeContext';
 import { formatDisplayDate, dueLabel } from '../utils/dates';
 
 type Props = {
@@ -16,6 +18,8 @@ type Props = {
 // this is also where "+N more" clipped-from-the-cell assignments become
 // reachable, since CalendarMonth only shows the first 1-2 per day.
 export default function DayListSheet({ visible, date, assignments, courses, onClose, onSelectAssignment }: Props) {
+  const { colors, scheme } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const { width } = useWindowDimensions();
   const isWide = width >= 700;
 
@@ -54,15 +58,15 @@ export default function DayListSheet({ visible, date, assignments, courses, onCl
                   const rawColor = course?.color ?? colors.muted;
                   // Completed rows use the same faded course color CalendarMonth
                   // already uses to de-emphasize completed chips.
-                  const rowColor = item.completed ? fadeColor(rawColor) : rawColor;
+                  const rowColor = item.completed ? fadeColor(rawColor, scheme) : rawColor;
                   const badge = dueLabel(item.dueDate, item.completed);
                   return (
                     <TouchableOpacity
                       style={[
                         styles.row,
                         {
-                          backgroundColor: tintColor(rowColor),
-                          borderColor: item.completed ? colors.border : colors.ink,
+                          backgroundColor: tintColor(rowColor, scheme),
+                          borderColor: item.completed ? colors.border : colors.text,
                           borderLeftColor: rowColor,
                         },
                       ]}
@@ -72,14 +76,14 @@ export default function DayListSheet({ visible, date, assignments, courses, onCl
                         <Text
                           style={[
                             styles.rowTitle,
-                            { color: darkenColor(rowColor) },
+                            { color: tintTextColor(rowColor, scheme) },
                             item.completed && styles.rowTitleDone,
                           ]}
                           numberOfLines={1}
                         >
                           {item.title}
                         </Text>
-                        <Text style={[styles.rowCourse, { color: darkenColor(rowColor) }]}>
+                        <Text style={[styles.rowCourse, { color: tintTextColor(rowColor, scheme) }]}>
                           {course?.name ?? 'Unknown course'}
                         </Text>
                       </View>
@@ -105,7 +109,7 @@ export default function DayListSheet({ visible, date, assignments, courses, onCl
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) => StyleSheet.create({
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
   // On wide screens the popup reads better as a centered dialog than a
   // sheet stuck to the bottom of a large viewport.
@@ -113,7 +117,7 @@ const styles = StyleSheet.create({
   modalBox: { backgroundColor: colors.paper, borderTopLeftRadius: 20, borderTopRightRadius: 20, overflow: 'hidden' },
   modalBoxWide: { maxWidth: 520, width: '100%', alignSelf: 'center', borderRadius: 20 },
   header: {
-    backgroundColor: colors.ink,
+    backgroundColor: colors.headerBg,
     paddingHorizontal: 24,
     paddingTop: 20,
     paddingBottom: 16,
@@ -122,9 +126,9 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   headerText: { flex: 1 },
-  headerTitle: { fontSize: 19, fontFamily: fonts.display, color: colors.paper },
+  headerTitle: { fontSize: 19, fontFamily: fonts.display, color: colors.headerText },
   headerCount: { fontSize: 12, color: 'rgba(247,244,236,0.7)', marginTop: 2 },
-  closeIcon: { fontSize: 18, color: colors.paper },
+  closeIcon: { fontSize: 18, color: colors.headerText },
   content: { padding: 24, paddingBottom: 40 },
   list: { maxHeight: 360 },
   emptyText: { color: colors.muted, fontSize: 14, paddingVertical: 16 },
@@ -145,8 +149,8 @@ const styles = StyleSheet.create({
   dueBadge: {
     fontFamily: fonts.mono,
     fontSize: 10,
-    color: '#854F0B',
-    backgroundColor: '#FAEEDA',
+    color: colors.warningText,
+    backgroundColor: colors.warningBg,
     paddingHorizontal: 6,
     paddingVertical: 3,
     borderRadius: 4,

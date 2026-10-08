@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Modal, useWindowDimensions } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Category, Course } from '../types';
 import { GradeThresholds } from '../utils/grades';
-import { colors, fonts } from '../constants/theme';
+import { fonts, type ThemeColors } from '../constants/theme';
+import { useTheme } from '../context/ThemeContext';
 import { notify, confirmDestructive } from '../utils/alerts';
 
 type Props = {
@@ -23,6 +24,8 @@ type Props = {
 export default function GradeThresholdsModal({
   visible, course, categories, onCancel, onSave, onAddCategory, onUpdateCategory, onDeleteCategory,
 }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const { width } = useWindowDimensions();
   const isWide = width >= 700;
 
@@ -212,6 +215,8 @@ function ThresholdField({ label, value, onChangeText }: {
   value: string;
   onChangeText: (text: string) => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={styles.field}>
       <Text style={styles.fieldLabel}>{label}</Text>
@@ -225,13 +230,13 @@ function ThresholdField({ label, value, onChangeText }: {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) => StyleSheet.create({
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
   modalOverlayWide: { justifyContent: 'center' },
   modalBox: { backgroundColor: colors.paper, borderTopLeftRadius: 20, borderTopRightRadius: 20, overflow: 'hidden' },
   modalBoxWide: { maxWidth: 520, width: '100%', alignSelf: 'center', borderRadius: 20 },
   header: {
-    backgroundColor: colors.ink,
+    backgroundColor: colors.headerBg,
     paddingHorizontal: 24,
     paddingTop: 20,
     paddingBottom: 16,
@@ -240,22 +245,22 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   headerText: { flex: 1 },
-  headerTitle: { fontSize: 19, fontFamily: fonts.display, color: colors.paper },
+  headerTitle: { fontSize: 19, fontFamily: fonts.display, color: colors.headerText },
   headerSubtitle: { fontSize: 12, color: 'rgba(247,244,236,0.7)', marginTop: 2 },
-  closeIcon: { fontSize: 18, color: colors.paper },
+  closeIcon: { fontSize: 18, color: colors.headerText },
   content: { padding: 24, paddingBottom: 40 },
   field: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   fieldLabel: { fontSize: 14, color: colors.slate },
   input: {
     borderWidth: 1, borderColor: colors.border, borderRadius: 10,
-    padding: 10, fontSize: 15, backgroundColor: colors.card,
+    padding: 10, fontSize: 15, backgroundColor: colors.card, color: colors.inputText,
     width: 80, textAlign: 'center',
   },
   modalButtons: { flexDirection: 'row', gap: 12, marginTop: 8 },
   cancelBtn: { flex: 1, padding: 14, borderRadius: 10, borderWidth: 1, borderColor: colors.border, alignItems: 'center' },
   cancelText: { color: colors.muted, fontSize: 15 },
-  saveBtn: { flex: 1, padding: 14, borderRadius: 10, backgroundColor: colors.ink, alignItems: 'center' },
-  saveText: { color: colors.paper, fontSize: 15, fontWeight: '600' as const },
+  saveBtn: { flex: 1, padding: 14, borderRadius: 10, backgroundColor: colors.primary, alignItems: 'center' },
+  saveText: { color: colors.onPrimary, fontSize: 15, fontWeight: '600' as const },
   divider: { height: 1, backgroundColor: colors.border, marginVertical: 20 },
   sectionTitle: { fontSize: 16, fontFamily: fonts.display, color: colors.slate, marginBottom: 12 },
   categoryRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
@@ -267,7 +272,7 @@ const styles = StyleSheet.create({
   categoryForm: { flexDirection: 'row', gap: 8 },
   categoryInputBase: {
     borderWidth: 1, borderColor: colors.border, borderRadius: 10,
-    padding: 10, fontSize: 15, backgroundColor: colors.card,
+    padding: 10, fontSize: 15, backgroundColor: colors.card, color: colors.inputText,
   },
   categoryNameInput: { flex: 2 },
   categoryWeightInput: { flex: 1, textAlign: 'center' },

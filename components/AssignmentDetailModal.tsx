@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, useWindowDimensions } from 'react-native';
 import { Assignment, Course } from '../types';
-import { colors, fonts, priorityColors, tintColor, darkenColor } from '../constants/theme';
+import { fonts, priorityColors, tintColor, tintTextColor, type ThemeColors } from '../constants/theme';
+import { useTheme } from '../context/ThemeContext';
 import { formatDisplayDate, dueLabel } from '../utils/dates';
 
 type Props = {
@@ -17,6 +18,8 @@ type Props = {
 export default function AssignmentDetailModal({
   visible, assignment, course, onClose, onEdit, onToggleComplete, onDelete,
 }: Props) {
+  const { colors, scheme } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const { width } = useWindowDimensions();
   const isWide = width >= 700;
 
@@ -83,11 +86,11 @@ export default function AssignmentDetailModal({
                   <View
                     style={[
                       styles.notesBox,
-                      { backgroundColor: tintColor(courseColor), borderLeftColor: courseColor },
+                      { backgroundColor: tintColor(courseColor, scheme), borderLeftColor: courseColor },
                     ]}
                   >
-                    <Text style={[styles.notesLabel, { color: darkenColor(courseColor) }]}>Notes</Text>
-                    <Text style={[styles.notesText, { color: darkenColor(courseColor) }]}>{shown.notes}</Text>
+                    <Text style={[styles.notesLabel, { color: tintTextColor(courseColor, scheme) }]}>Notes</Text>
+                    <Text style={[styles.notesText, { color: tintTextColor(courseColor, scheme) }]}>{shown.notes}</Text>
                   </View>
                 ) : null}
 
@@ -113,7 +116,7 @@ export default function AssignmentDetailModal({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) => StyleSheet.create({
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
   // On wide screens the popup reads better as a centered dialog than a
   // sheet stuck to the bottom of a large viewport.
@@ -121,7 +124,7 @@ const styles = StyleSheet.create({
   modalBox: { backgroundColor: colors.paper, borderTopLeftRadius: 20, borderTopRightRadius: 20, overflow: 'hidden' },
   modalBoxWide: { maxWidth: 520, width: '100%', alignSelf: 'center', borderRadius: 20 },
   header: {
-    backgroundColor: colors.ink,
+    backgroundColor: colors.headerBg,
     paddingHorizontal: 24,
     paddingTop: 20,
     paddingBottom: 16,
@@ -130,16 +133,16 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   headerText: { flex: 1 },
-  headerTitle: { fontSize: 19, fontFamily: fonts.display, color: colors.paper },
+  headerTitle: { fontSize: 19, fontFamily: fonts.display, color: colors.headerText },
   headerCourse: { fontSize: 12, color: 'rgba(247,244,236,0.7)', marginTop: 2 },
-  closeIcon: { fontSize: 18, color: colors.paper },
+  closeIcon: { fontSize: 18, color: colors.headerText },
   content: { padding: 24, paddingBottom: 40 },
   badges: { flexDirection: 'row', gap: 8, marginBottom: 16 },
   dueBadge: {
     fontFamily: fonts.mono,
     fontSize: 10,
-    color: '#854F0B',
-    backgroundColor: '#FAEEDA',
+    color: colors.warningText,
+    backgroundColor: colors.warningBg,
     paddingHorizontal: 6,
     paddingVertical: 3,
     borderRadius: 4,
@@ -155,8 +158,8 @@ const styles = StyleSheet.create({
   modalButtons: { flexDirection: 'row', gap: 12, marginTop: 20 },
   toggleBtn: { flex: 1, padding: 14, borderRadius: 10, borderWidth: 1, borderColor: colors.success, alignItems: 'center' },
   toggleText: { color: colors.success, fontSize: 13, fontWeight: '600' as const },
-  editBtn: { flex: 1, padding: 14, borderRadius: 10, backgroundColor: colors.ink, alignItems: 'center' },
-  editText: { color: colors.paper, fontSize: 15 },
+  editBtn: { flex: 1, padding: 14, borderRadius: 10, backgroundColor: colors.primary, alignItems: 'center' },
+  editText: { color: colors.onPrimary, fontSize: 15 },
   deleteBtn: { flex: 1, padding: 14, borderRadius: 10, borderWidth: 1, borderColor: colors.danger, alignItems: 'center' },
   deleteText: { color: colors.danger, fontSize: 15, fontWeight: '600' as const },
 });

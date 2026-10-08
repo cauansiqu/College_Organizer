@@ -1,14 +1,18 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { ComponentProps } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { supabase } from '../../lib/subapase';
 import { notify } from '../../utils/alerts';
-import { colors, fonts } from '../../constants/theme';
+import { fonts, type ThemeColors } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
 export default function AuthScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -173,7 +177,7 @@ export default function AuthScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.paper,
@@ -191,7 +195,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
   },
   header: {
-    backgroundColor: colors.ink,
+    backgroundColor: colors.headerBg,
     alignItems: 'center',
     paddingVertical: 28,
     paddingHorizontal: 24,
@@ -200,7 +204,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontFamily: fonts.display,
-    color: colors.paper,
+    color: colors.headerText,
     textAlign: 'center',
   },
   headerSubtitle: {
@@ -251,7 +255,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   callout: {
-    backgroundColor: '#FAEEDA',
+    backgroundColor: colors.warningBg,
     borderLeftWidth: 4,
     borderLeftColor: colors.amber,
     padding: 14,
@@ -271,7 +275,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   submitBtn: {
-    backgroundColor: colors.ink,
+    backgroundColor: colors.primary,
     padding: 14,
     borderRadius: 10,
     alignItems: 'center',
@@ -281,7 +285,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   submitText: {
-    color: colors.paper,
+    color: colors.onPrimary,
     fontSize: 15,
     fontWeight: '600',
   },

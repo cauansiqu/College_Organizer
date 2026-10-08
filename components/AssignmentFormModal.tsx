@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Modal, ScrollView } from 'react-native';
 import DatePickerField from './DatePickerField';
 import { notify } from '../utils/alerts';
 import { Assignment, Category, Course } from '../types';
-import { colors, fonts, priorityColors } from '../constants/theme';
+import { fonts, priorityColors, type ThemeColors } from '../constants/theme';
+import { useTheme } from '../context/ThemeContext';
 import { getAssignmentPercentage } from '../utils/grades';
 
 const PRIORITIES = ['Low', 'Medium', 'High'] as const;
@@ -28,7 +29,7 @@ type Props = {
   courses?: Course[];           // pass this to show a course-picker row (used on the Assignments tab)
   defaultCourseId?: string;     // used instead, when there's no picker (used on the Course Detail page)
   categories?: Category[];      // full list; filtered internally to the currently-selected course
-  accentColor?: string;         // Save button color; defaults to the app's ink color
+  accentColor?: string;         // Save button color; defaults to the theme's primary color
   onCancel: () => void;
   onSave: (values: AssignmentFormValues) => void;
   onDelete?: () => void;          // optional delete button (used on the Assignments tab)
@@ -37,6 +38,8 @@ type Props = {
 export default function AssignmentFormModal({
   visible, editing, courses, defaultCourseId, categories, accentColor, onCancel, onSave, onDelete,
 }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [title, setTitle] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [notes, setNotes] = useState('');
@@ -80,7 +83,7 @@ export default function AssignmentFormModal({
     }
   }
 
-  const saveColor = accentColor ?? colors.ink;
+  const saveColor = accentColor ?? colors.primary;
 
   // Categories belong to a course, so recompute which ones are valid options
   // every render from the currently-selected course rather than syncing via
@@ -264,11 +267,11 @@ export default function AssignmentFormModal({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) => StyleSheet.create({
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
   modalBox: { backgroundColor: colors.paper, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40 },
   modalTitle: { fontSize: 19, fontFamily: fonts.display, marginBottom: 16, color: colors.slate },
-  input: { borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 12, fontSize: 15, marginBottom: 12, backgroundColor: colors.card },
+  input: { borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 12, fontSize: 15, marginBottom: 12, backgroundColor: colors.card, color: colors.inputText },
   label: { fontSize: 13, color: colors.muted, marginBottom: 8 },
   pointsRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
   pointsInput: { flex: 1, marginBottom: 0 },
@@ -280,7 +283,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5, borderColor: colors.border, borderRadius: 10,
     paddingHorizontal: 14, paddingVertical: 10, marginRight: 8,
   },
-  categoryBtnActive: { backgroundColor: colors.ink, borderColor: colors.ink },
+  categoryBtnActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   categoryBtnText: { fontSize: 13, fontWeight: '600' as const, color: colors.slate },
   categoryBtnTextActive: { color: '#fff' },
   priorityRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
@@ -292,5 +295,5 @@ const styles = StyleSheet.create({
   cancelBtn: { flex: 1, padding: 14, borderRadius: 10, borderWidth: 1, borderColor: colors.border, alignItems: 'center' },
   cancelText: { color: colors.muted, fontSize: 15 },
   saveBtn: { flex: 1, padding: 14, borderRadius: 10, alignItems: 'center' },
-  saveText: { color: colors.paper, fontSize: 15, fontWeight: '600' as const },
+  saveText: { color: colors.onPrimary, fontSize: 15, fontWeight: '600' as const },
 });

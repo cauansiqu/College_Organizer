@@ -1,6 +1,6 @@
 import { confirmDestructive } from "@/utils/alerts";
 import { useFocusEffect } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   FlatList,
   StyleSheet,
@@ -15,7 +15,8 @@ import AssignmentFormModal, {
 } from "../../components/AssignmentFormModal";
 import CalendarMonth from "../../components/CalendarMonth";
 import DayListSheet from "../../components/DayListSheet";
-import { colors, fonts, priorityColors, tintColor } from "../../constants/theme";
+import { fonts, priorityColors, tintColor, type ThemeColors } from "../../constants/theme";
+import { useTheme } from "../../context/ThemeContext";
 import {
   deleteAssignment,
   getAssignments,
@@ -32,6 +33,8 @@ type SortMode = "date" | "priority";
 const PRIORITY_RANK: Record<string, number> = { High: 0, Medium: 1, Low: 2 };
 
 export default function AssignmentsScreen() {
+  const { colors, scheme } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const { width } = useWindowDimensions();
   const isWide = width >= 700;
 
@@ -211,7 +214,7 @@ export default function AssignmentsScreen() {
                 styles.card,
                 item.completed && styles.cardDone,
                 {
-                  backgroundColor: tintColor(course?.color ?? colors.muted),
+                  backgroundColor: tintColor(course?.color ?? colors.muted, scheme),
                   borderLeftColor: course?.color ?? colors.muted,
                 },
               ]}
@@ -332,7 +335,7 @@ export default function AssignmentsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.paper },
   splitRow: { flex: 1, flexDirection: "row", gap: 16, padding: 16 },
   stackedContainer: { flex: 1, padding: 16 },
@@ -356,9 +359,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.muted,
   },
-  sortPillActive: { backgroundColor: colors.ink, borderColor: colors.ink },
+  sortPillActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   sortPillText: { fontSize: 12, color: colors.muted },
-  sortPillTextActive: { color: colors.paper },
+  sortPillTextActive: { color: colors.onPrimary },
   empty: {
     alignItems: "center",
     justifyContent: "center",
@@ -387,8 +390,8 @@ const styles = StyleSheet.create({
   dueBadge: {
     fontFamily: fonts.mono,
     fontSize: 10,
-    color: "#854F0B",
-    backgroundColor: "#FAEEDA",
+    color: colors.warningText,
+    backgroundColor: colors.warningBg,
     paddingHorizontal: 6,
     paddingVertical: 3,
     borderRadius: 4,
@@ -400,7 +403,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: 24,
     right: 24,
-    backgroundColor: colors.ink,
+    backgroundColor: colors.primary,
     width: 56,
     height: 56,
     borderRadius: 28,

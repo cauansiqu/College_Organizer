@@ -1,16 +1,59 @@
-import { Stack } from 'expo-router';
+// Navigation themes come from expo-router itself — as of SDK 56, importing
+// @react-navigation/native directly fails the build.
+import {
+  Stack,
+  DarkTheme,
+  DefaultTheme,
+  ThemeProvider as NavigationThemeProvider,
+} from 'expo-router';
 import { View, ActivityIndicator, StyleSheet, Platform } from 'react-native';
-import { colors, fonts } from '../constants/theme';
+import { StatusBar } from 'expo-status-bar';
+import { fonts, type ThemeColors } from '../constants/theme';
+import { ThemeProvider, useTheme } from '../context/ThemeContext';
 import { supabase } from '../lib/subapase';
 import { setupNotifications, scheduleAssignmentReminders } from '../lib/notifications';
 import { getAssignments, getCourses } from '../storage/storage';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 
-// Root layout — a Stack navigator that wraps everything
-// The tabs group sits inside it, and detail screens slide on top
+// Root layout — only provides the app theme. The actual navigator lives in
+// RootNavigator below, because it needs useTheme(), which only works
+// *inside* the provider.
 export default function RootLayout() {
+  return (
+    <ThemeProvider>
+      <RootNavigator />
+    </ThemeProvider>
+  );
+}
+
+// A Stack navigator that wraps everything
+// The tabs group sits inside it, and detail screens slide on top
+function RootNavigator() {
+  const { colors, scheme, ready } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+
+  // React Navigation's own theme controls the background shown behind and
+  // between screens (default is a light grey). Light keeps every default
+  // except the background; dark maps our palette so nothing flashes white.
+  const navTheme = useMemo(
+    () =>
+      scheme === 'dark'
+        ? {
+            ...DarkTheme,
+            colors: {
+              ...DarkTheme.colors,
+              background: colors.paper,
+              card: colors.card,
+              text: colors.text,
+              border: colors.border,
+            },
+          }
+        : { ...DefaultTheme, colors: { ...DefaultTheme.colors, background: colors.paper } },
+    [scheme, colors],
+  );
+
   // undefined = session not resolved yet, null = signed out, Session = signed in.
   // Keeping "not resolved yet" distinct from "signed out" is what lets us
   // show a loading state instead of flashing the login screen on startup.
@@ -82,16 +125,19 @@ export default function RootLayout() {
     })();
   }, [session]);
 
-  if (session === undefined) {
+  // Also wait for the saved theme choice, so a saved "Dark" never flashes light.
+  if (session === undefined || !ready) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator color={colors.ink} size="large" />
+        <ActivityIndicator color={colors.text} size="large" />
       </View>
     );
   }
 
   return (
-    <>
+    <NavigationThemeProvider value={navTheme}>
+      {/* Light status-bar text on the dark theme, dark text on light */}
+      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
       <Stack>
         {/* Signed in — the tabs group and anything it can navigate to */}
         <Stack.Protected guard={!!session}>
@@ -100,8 +146,8 @@ export default function RootLayout() {
             name="course/[id]"
             options={{
               title: 'Course Detail',
-              headerStyle: { backgroundColor: colors.ink },
-              headerTintColor: colors.paper,
+              headerStyle: { backgroundColor: colors.headerBg },
+              headerTintColor: colors.headerText,
               headerTitleStyle: { fontFamily: fonts.display, fontWeight: '400' as const },
             }}
           />
@@ -113,11 +159,11 @@ export default function RootLayout() {
         </Stack.Protected>
       </Stack>
       {Platform.OS === 'web' && <SpeedInsights />}
-    </>
+    </NavigationThemeProvider>
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) => StyleSheet.create({
   loading: {
     flex: 1,
     backgroundColor: colors.paper,

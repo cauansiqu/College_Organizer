@@ -2,33 +2,20 @@ import { Tabs } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { colors, fonts } from '../../constants/theme';
-// TEMP DEBUG [tabbar-debug] — imports below are only for the diagnostic log.
-import { useEffect } from 'react';
-import { PixelRatio, Platform } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { fonts } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function Layout() {
-  // TEMP DEBUG [tabbar-debug] — remove once tab bar clipping is diagnosed.
-  // The tab bar library already pads by insets.bottom by default, so this
-  // checks whether the inset is actually being reported on the affected
-  // phone (bottom=0 would explain clipping) and whether a large system font
-  // scale is making labels taller than the bar's fixed 49px.
-  const insets = useSafeAreaInsets();
-  useEffect(() => {
-    console.log(
-      `[tabbar-debug] platform=${Platform.OS} insets top=${insets.top} bottom=${insets.bottom} left=${insets.left} right=${insets.right} fontScale=${PixelRatio.getFontScale()}`,
-    );
-  }, [insets.top, insets.bottom, insets.left, insets.right]);
+  const { colors } = useTheme();
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: colors.ink,
+        tabBarActiveTintColor: colors.tabActive,
         tabBarInactiveTintColor: colors.muted,
-        tabBarStyle: { backgroundColor: colors.card },
-        headerStyle: { backgroundColor: colors.ink },
-        headerTintColor: colors.paper,
+        tabBarStyle: { backgroundColor: colors.tabBarBg },
+        headerStyle: { backgroundColor: colors.headerBg },
+        headerTintColor: colors.headerText,
         headerTitleStyle: { fontFamily: fonts.display, fontWeight: '400' as const },
       }}
     >

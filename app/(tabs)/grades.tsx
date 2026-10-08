@@ -1,8 +1,9 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { colors, fonts } from '../../constants/theme';
+import { fonts, type ThemeColors } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 import {
   getAssignments,
   getCategories,
@@ -27,6 +28,8 @@ import GradeThresholdsModal from '../../components/GradeThresholdsModal';
 type Draft = { earned: string; possible: string };
 
 export default function GradesScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -378,7 +381,7 @@ function trimNum(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(1);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.paper },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   emptyText: { fontSize: 18, fontFamily: fonts.display, color: colors.slate },

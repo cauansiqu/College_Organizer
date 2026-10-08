@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { Assignment, Course } from '../types';
-import { colors, fonts, fadeColor } from '../constants/theme';
+import { fonts, fadeColor, type ThemeColors } from '../constants/theme';
+import { useTheme } from '../context/ThemeContext';
 import { toLocalISODate } from '../utils/dates';
 
 const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -16,6 +17,8 @@ type Props = {
 };
 
 export default function CalendarMonth({ assignments, courses, onDayPress, onAssignmentPress }: Props) {
+  const { colors, scheme } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const { width } = useWindowDimensions();
   const isNarrow = width < 700; // below this, a 7-col month grid gets too cramped
 
@@ -35,7 +38,7 @@ export default function CalendarMonth({ assignments, courses, onDayPress, onAssi
   // course color so they stay visible but visually de-emphasized.
   const chipColor = (a: Assignment) => {
     const base = courseColor(a.courseId);
-    return a.completed ? fadeColor(base) : base;
+    return a.completed ? fadeColor(base, scheme) : base;
   };
 
   // Map "YYYY-MM-DD" -> assignments due that day
@@ -182,7 +185,7 @@ export default function CalendarMonth({ assignments, courses, onDayPress, onAssi
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) => StyleSheet.create({
   monthHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   monthLabel: { fontFamily: fonts.display, fontSize: 17, color: colors.slate },
   monthNav: { flexDirection: 'row', gap: 16 },
@@ -198,7 +201,7 @@ const styles = StyleSheet.create({
     width: `${100 / 7}%`, minHeight: 88, padding: 3,
     backgroundColor: colors.card, borderRadius: 6, borderWidth: 1, borderColor: colors.border,
   },
-  dayCellToday: { borderColor: colors.ink },
+  dayCellToday: { borderColor: colors.text },
   dayNum: { fontSize: 11, color: colors.slate, marginBottom: 2 },
   dayNumToday: { fontFamily: fonts.mono, fontWeight: '700' as const },
   chip: { borderRadius: 3, paddingHorizontal: 3, paddingVertical: 1, marginBottom: 1 },

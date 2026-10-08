@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, Platform, TextInput, StyleSheet } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { type ThemeColors } from '../constants/theme';
+import { useTheme } from '../context/ThemeContext';
 
 type Props = {
   value: string;           // ISO date string e.g. "2025-12-01"
@@ -39,6 +41,8 @@ function fromMDY(mdyStr: string): string | null {
 }
 
 export default function DatePickerField({ value, onChange, label }: Props) {
+  const { colors, scheme } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [show, setShow] = useState(false);
 
   // What's currently typed in the web textbox. Kept separate from `value`
@@ -94,6 +98,9 @@ export default function DatePickerField({ value, onChange, label }: Props) {
           value={dateValue}
           mode="date"
           display="default"
+          // iOS: match the app theme. (Android's dialog follows the native
+          // app theme, which ThemeContext sets via Appearance.setColorScheme.)
+          themeVariant={scheme}
           onChange={(event, selectedDate) => {
             setShow(false); // close after picking on Android
             if (selectedDate) {
@@ -106,16 +113,17 @@ export default function DatePickerField({ value, onChange, label }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) => StyleSheet.create({
   container: { marginBottom: 12 },
-  label: { fontSize: 14, color: '#555', marginBottom: 8 },
+  label: { fontSize: 14, color: colors.fieldLabel, marginBottom: 8 },
   button: {
-    borderWidth: 1, borderColor: '#ddd', borderRadius: 10,
-    padding: 12, backgroundColor: '#fafafa',
+    borderWidth: 1, borderColor: colors.fieldBorder, borderRadius: 10,
+    padding: 12, backgroundColor: colors.fieldBg,
   },
-  buttonText: { fontSize: 15, color: '#333' },
+  buttonText: { fontSize: 15, color: colors.fieldText },
   input: {
-    borderWidth: 1, borderColor: '#ddd', borderRadius: 10,
-    padding: 12, fontSize: 15, backgroundColor: '#fafafa',
+    borderWidth: 1, borderColor: colors.fieldBorder, borderRadius: 10,
+    padding: 12, fontSize: 15, backgroundColor: colors.fieldBg,
+    color: colors.inputText,
   },
 });

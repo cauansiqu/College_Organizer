@@ -1,17 +1,28 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { useFocusEffect, router } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { getAssignments, getCourses } from '../../storage/storage';
 import { parseLocalDate } from '@/utils/dates';
 import { Assignment, Course } from '../../types';
-import { colors, fonts, priorityColors, darkenColor, tintColor } from '../../constants/theme';
+import { fonts, priorityColors, tintColor, type ThemeColors } from '../../constants/theme';
+import { useTheme, type ThemeMode } from '../../context/ThemeContext';
 import { supabase } from '../../lib/subapase';
 import { notify } from '../../utils/alerts';
 
 const PRIORITY_COLORS = priorityColors;
 
+// Options for the Appearance picker at the bottom of the screen.
+const THEME_OPTIONS: { mode: ThemeMode; label: string }[] = [
+  { mode: 'system', label: 'System' },
+  { mode: 'light', label: 'Light' },
+  { mode: 'dark', label: 'Dark' },
+];
+
 export default function HomeScreen() {
+  const { colors, scheme, mode, setMode } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
 
@@ -127,7 +138,7 @@ export default function HomeScreen() {
         <View>
           <View style={styles.sectionHeader}>
             <View style={[styles.sectionIconBadge, styles.sectionIconBadgeOverdue]}>
-              <Ionicons name="alert-circle" size={14} color={darkenColor(colors.danger, 0.25)} />
+              <Ionicons name="alert-circle" size={14} color={colors.dangerIcon} />
             </View>
             <Text style={styles.sectionTitle}>Overdue</Text>
           </View>
@@ -139,7 +150,7 @@ export default function HomeScreen() {
                 style={[
                   styles.card,
                   {
-                    backgroundColor: tintColor(course?.color ?? colors.muted),
+                    backgroundColor: tintColor(course?.color ?? colors.muted, scheme),
                     borderLeftColor: course?.color ?? colors.muted,
                   },
                 ]}
@@ -162,7 +173,7 @@ export default function HomeScreen() {
       <View>
         <View style={styles.sectionHeader}>
           <View style={[styles.sectionIconBadge, styles.sectionIconBadgeDueThisWeek]}>
-            <Ionicons name="calendar-outline" size={14} color="#185FA5" />
+            <Ionicons name="calendar-outline" size={14} color={colors.infoText} />
           </View>
           <Text style={styles.sectionTitle}>Due this week</Text>
         </View>
@@ -180,7 +191,7 @@ export default function HomeScreen() {
                 style={({ pressed }) => [
                   styles.card,
                   {
-                    backgroundColor: tintColor(course?.color ?? colors.muted),
+                    backgroundColor: tintColor(course?.color ?? colors.muted, scheme),
                     borderLeftColor: course?.color ?? colors.muted,
                   },
                   pressed && styles.pressedCard,
@@ -226,7 +237,7 @@ export default function HomeScreen() {
                 style={({ pressed }) => [
                   styles.card,
                   {
-                    backgroundColor: tintColor(course?.color ?? colors.muted),
+                    backgroundColor: tintColor(course?.color ?? colors.muted, scheme),
                     borderLeftColor: course?.color ?? colors.muted,
                   },
                   pressed && styles.pressedCard,
@@ -279,11 +290,35 @@ export default function HomeScreen() {
         )}
       </View>
 
+      {/* --- Appearance (System / Light / Dark) --- */}
+      <View>
+        <View style={styles.sectionHeader}>
+          <Ionicons name="contrast-outline" size={16} color={colors.slate} />
+          <Text style={styles.sectionTitle}>Appearance</Text>
+        </View>
+        <View style={styles.themeRow}>
+          {THEME_OPTIONS.map(opt => {
+            const selected = mode === opt.mode;
+            return (
+              <Pressable
+                key={opt.mode}
+                onPress={() => setMode(opt.mode)}
+                style={[styles.themePill, selected && styles.themePillActive]}
+              >
+                <Text style={[styles.themePillText, selected && styles.themePillTextActive]}>
+                  {opt.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+
     </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.paper },
   headerRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -298,12 +333,12 @@ const styles = StyleSheet.create({
   statCard: {
     flex: 1, borderRadius: 12, padding: 12, alignItems: 'center',
   },
-  statCardInk: { backgroundColor: colors.ink },
-  statCardAmber: { backgroundColor: colors.amber },
-  statCardDanger: { backgroundColor: colors.danger },
-  statCardSuccess: { backgroundColor: colors.success },
+  statCardInk: { backgroundColor: colors.statNavy },
+  statCardAmber: { backgroundColor: colors.statAmber },
+  statCardDanger: { backgroundColor: colors.statRed },
+  statCardSuccess: { backgroundColor: colors.statGreen },
   statTextLight: { color: '#fff' },
-  statTextInk: { color: colors.ink },
+  statTextInk: { color: colors.onAccent },
   statNumber: { fontSize: 24, fontFamily: fonts.mono, fontWeight: '700' as const },
   statLabel: { fontSize: 11, marginTop: 2, textAlign: 'center' },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 },
@@ -312,9 +347,9 @@ const styles = StyleSheet.create({
     width: 24, height: 24, borderRadius: 12,
     alignItems: 'center', justifyContent: 'center',
   },
-  sectionIconBadgeDueThisWeek: { backgroundColor: '#E6F1FB' },
-  sectionIconBadgeHighPriority: { backgroundColor: '#FCEBEB' },
-  sectionIconBadgeOverdue: { backgroundColor: darkenColor('#FCEBEB', 0.15) },
+  sectionIconBadgeDueThisWeek: { backgroundColor: colors.infoBg },
+  sectionIconBadgeHighPriority: { backgroundColor: colors.dangerBg },
+  sectionIconBadgeOverdue: { backgroundColor: colors.dangerBgStrong },
   emptySection: { fontSize: 14, color: colors.muted, fontStyle: 'italic' },
   card: {
     borderRadius: 10, padding: 14,
@@ -333,7 +368,7 @@ const styles = StyleSheet.create({
   },
   dueBadgeUrgent: {
     fontSize: 10, fontFamily: fonts.mono,
-    backgroundColor: '#FCEBEB', color: colors.danger,
+    backgroundColor: colors.dangerBg, color: colors.danger,
     paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4,
   },
   pressedCard: {
@@ -349,4 +384,13 @@ const styles = StyleSheet.create({
   courseChip: { borderRadius: 10, padding: 14, minWidth: 140 },
   courseChipName: { color: '#fff', fontFamily: fonts.display, fontSize: 14 },
   courseChipCount: { color: 'rgba(255,255,255,0.85)', fontSize: 12, marginTop: 4, fontFamily: fonts.mono },
+  // Appearance picker — same pill look as the Assignments sort toggle
+  themeRow: { flexDirection: 'row', gap: 8 },
+  themePill: {
+    paddingHorizontal: 14, paddingVertical: 6, borderRadius: 14,
+    borderWidth: 1, borderColor: colors.muted,
+  },
+  themePillActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  themePillText: { fontSize: 13, color: colors.muted },
+  themePillTextActive: { color: colors.onPrimary },
 });
