@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import type { ComponentProps } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { supabase } from '../../lib/subapase';
+import { supabase } from '../../lib/supabase';
 import { notify } from '../../utils/alerts';
 import { fonts, type ThemeColors } from '../../constants/theme';
 import { useTheme } from '../../context/ThemeContext';

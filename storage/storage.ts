@@ -1,4 +1,4 @@
-import { supabase } from "../lib/subapase";
+import { supabase } from "../lib/supabase";
 import { cancelAssignmentReminders, scheduleAssignmentReminders } from "../lib/notifications";
 import { Course, Assignment, Category } from "../types";
 

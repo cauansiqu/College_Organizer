@@ -7,7 +7,7 @@ import { parseLocalDate } from '@/utils/dates';
 import { Assignment, Course } from '../../types';
 import { fonts, priorityColors, tintColor, type ThemeColors } from '../../constants/theme';
 import { useTheme, type ThemeMode } from '../../context/ThemeContext';
-import { supabase } from '../../lib/subapase';
+import { supabase } from '../../lib/supabase';
 import { notify } from '../../utils/alerts';
 
 const PRIORITY_COLORS = priorityColors;

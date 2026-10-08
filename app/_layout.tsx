@@ -10,7 +10,7 @@ import { View, ActivityIndicator, StyleSheet, Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { fonts, type ThemeColors } from '../constants/theme';
 import { ThemeProvider, useTheme } from '../context/ThemeContext';
-import { supabase } from '../lib/subapase';
+import { supabase } from '../lib/supabase';
 import { setupNotifications, scheduleAssignmentReminders } from '../lib/notifications';
 import { getAssignments, getCourses } from '../storage/storage';
 import { useEffect, useMemo, useState } from 'react';
