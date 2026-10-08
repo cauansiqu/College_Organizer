@@ -92,7 +92,7 @@ utils/dates.ts             parseLocalDate() — the ONLY correct way to parse da
 utils/alerts.ts            notify() / confirmDestructive() — cross-platform alerts
 utils/grades.ts            Grade math — percentage/letter-grade calculation,
                            weighted category averaging
-lib/subapase.ts            Supabase client (note: filename is misspelled)
+lib/supabase.ts            Supabase client (note: filename is misspelled)
 lib/notifications.ts       Due-date reminder scheduling via expo-notifications
                            (mobile only — no-ops on web, see gotcha #10)
 
@@ -130,7 +130,7 @@ actually needs are `EXPO_PUBLIC_SUPABASE_URL` and
 ### 5. Supabase auth storage must be guarded for server-side rendering
 Expo Router pre-renders pages in Node, where `window` doesn't exist. But
 AsyncStorage's web implementation calls `window.localStorage` unconditionally,
-crashing the build. `lib/subapase.ts` wraps it in an `isServerRender` check —
+crashing the build. `lib/supabase.ts` wraps it in an `isServerRender` check —
 don't remove that guard.
 
 ### 6. Web flex containers need `minHeight: 0` to scroll
@@ -192,7 +192,7 @@ reminder notifications on mobile (5/3/1 days before, plus due-day morning).
 and writes `courses`/`assignments` through the logged-in user's session, and
 Row Level Security policies (`auth.uid() = user_id`) enforce that scoping at
 the database level, not just in the app. AsyncStorage is now only used for
-the Supabase auth session itself (via `lib/subapase.ts`) — it no longer holds
+the Supabase auth session itself (via `lib/supabase.ts`) — it no longer holds
 any course/assignment data. Signing in as a different user now correctly
 shows that user's own (empty, unless they've added data) courses and
 assignments, not anyone else's.

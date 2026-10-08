@@ -16,7 +16,7 @@ type ThemeContextValue = {
 
 const STORAGE_KEY = 'themeMode';
 
-// Same guard as lib/subapase.ts: during Expo Router's Node pre-render there's
+// Same guard as lib/supabase.ts: during Expo Router's Node pre-render there's
 // no `window`, and AsyncStorage's web implementation would crash touching
 // window.localStorage (CLAUDE.md gotcha #5).
 const isServerRender = Platform.OS === 'web' && typeof window === 'undefined';
