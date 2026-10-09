@@ -72,6 +72,19 @@ export default function AuthScreen() {
     }
   }
 
+  // "Try the demo": sign in as an anonymous user. Seeding the sample data
+  // happens in app/_layout.tsx (not here) so the tabs never mount on an
+  // empty account — on success there's nothing else to do in this screen.
+  async function handleDemo() {
+    setSubmitting(true);
+    try {
+      const { error } = await supabase.auth.signInAnonymously();
+      if (error) notify('Demo unavailable', error.message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   const headerIcon: IconName = signupSuccess ? 'mail-outline' : 'school-outline';
   const headerTitle = signupSuccess
     ? 'Check your email'
@@ -169,6 +182,17 @@ export default function AuthScreen() {
                     : 'Already have an account? Log in'}
                 </Text>
               </Pressable>
+
+              {/* Secondary path: explore with sample data, no account needed */}
+              <View style={styles.divider} />
+              <Pressable
+                style={[styles.demoBtn, submitting && styles.submitBtnDisabled]}
+                onPress={handleDemo}
+                disabled={submitting}
+              >
+                <Text style={styles.demoText}>Try the demo</Text>
+              </Pressable>
+              <Text style={styles.demoHint}>No account needed, explore with sample data.</Text>
             </>
           )}
         </View>
@@ -294,5 +318,29 @@ const makeStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: 13,
     textAlign: 'center',
     marginTop: 16,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginVertical: 20,
+  },
+  // Outlined so it reads as secondary to the filled Log In / Sign Up button
+  demoBtn: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  demoText: {
+    color: colors.slate,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  demoHint: {
+    fontSize: 12,
+    color: colors.muted,
+    textAlign: 'center',
+    marginTop: 8,
   },
 });

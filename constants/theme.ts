@@ -131,6 +131,10 @@ export const fonts = {
   mono: '"Courier New", Menlo, monospace',         // dates, due-in badges
 };
 
+// The palette a course color is picked from (Add/Edit course, demo seed data).
+// Same in both themes.
+export const courseColors = ['#4A90E2', '#E74C3C', '#2ECC71', '#F39C12', '#9B59B6', '#1ABC9C'];
+
 // Same in both themes, so this can stay a static constant.
 export const priorityColors: Record<string, string> = {
   Low: lightColors.success,

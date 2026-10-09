@@ -95,6 +95,8 @@ utils/grades.ts            Grade math — percentage/letter-grade calculation,
 lib/supabase.ts            Supabase client (note: filename is misspelled)
 lib/notifications.ts       Due-date reminder scheduling via expo-notifications
                            (mobile only — no-ops on web, see gotcha #10)
+lib/demo.ts                seedDemoData() — sample courses/assignments for
+                           "Try the demo" (see "Demo mode" below)
 
 supabase/migrations/       Version-controlled schema — source of truth, see gotcha #8
 ```
@@ -196,6 +198,23 @@ the Supabase auth session itself (via `lib/supabase.ts`) — it no longer holds
 any course/assignment data. Signing in as a different user now correctly
 shows that user's own (empty, unless they've added data) courses and
 assignments, not anyone else's.
+
+**Demo mode.** The login screen's "Try the demo" button calls
+`supabase.auth.signInAnonymously()` — no account or email needed. Seeding is
+done in `app/_layout.tsx`, *not* the button, so the tabs never mount on an
+empty account: the layout derives `needsDemoSeed` (anonymous user without
+`user_metadata.demo_seeded`), keeps showing the loading spinner while it's
+true, and calls `seedDemoData()` (`lib/demo.ts`) once per user id. That
+clears any partial rows, bulk-inserts 4 courses + ~12 assignments with due
+dates relative to today, then sets `demo_seeded: true` via
+`supabase.auth.updateUser()` — which fires `onAuthStateChange` with the
+updated user and clears the spinner. If seeding fails the user is notified
+and signed out. Never call Supabase inside the `onAuthStateChange` callback
+itself. Anonymous users get the `authenticated` role, so the existing RLS
+policies cover them with no schema change, but **anonymous sign-ins must be
+enabled in the Supabase dashboard** (Authentication → Sign In / Providers).
+Signed-out demo users are left behind in `auth.users`; clean up old
+anonymous users periodically.
 
 ---
 

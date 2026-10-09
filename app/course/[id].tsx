@@ -8,11 +8,11 @@ import { Course, Assignment, Category } from '../../types';
 import AssignmentFormModal, { AssignmentFormValues } from '../../components/AssignmentFormModal';
 import { notify, confirmDestructive } from '../../utils/alerts';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { fonts, priorityColors, type ThemeColors } from '../../constants/theme';
+import { fonts, priorityColors, courseColors, type ThemeColors } from '../../constants/theme';
 import { useTheme } from '../../context/ThemeContext';
 
 const PRIORITY_COLORS = priorityColors;
-const COLORS = ['#4A90E2', '#E74C3C', '#2ECC71', '#F39C12', '#9B59B6', '#1ABC9C'];
+const COLORS = courseColors;
 
 export default function CourseDetailScreen() {
   const { colors } = useTheme();

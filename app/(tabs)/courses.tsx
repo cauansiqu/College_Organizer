@@ -3,11 +3,11 @@ import { View, Text, StyleSheet, TouchableOpacity, FlatList, Modal, TextInput } 
 import { useRouter, useFocusEffect } from 'expo-router';
 import { getCourses, saveCourse, deleteCourse } from '../../storage/storage';
 import { Course } from '../../types';
-import { fonts, tintColor, type ThemeColors } from '../../constants/theme';
+import { fonts, tintColor, courseColors, type ThemeColors } from '../../constants/theme';
 import { useTheme } from '../../context/ThemeContext';
 import { notify, confirmDestructive } from '../../utils/alerts';
 
-const COLORS = ['#4A90E2', '#E74C3C', '#2ECC71', '#F39C12', '#9B59B6', '#1ABC9C'];
+const COLORS = courseColors;
 
 export default function CoursesScreen() {
   const { colors, scheme } = useTheme();

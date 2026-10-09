@@ -12,8 +12,10 @@ import { fonts, type ThemeColors } from '../constants/theme';
 import { ThemeProvider, useTheme } from '../context/ThemeContext';
 import { supabase } from '../lib/supabase';
 import { setupNotifications, scheduleAssignmentReminders } from '../lib/notifications';
+import { seedDemoData } from '../lib/demo';
 import { getAssignments, getCourses } from '../storage/storage';
-import { useEffect, useMemo, useState } from 'react';
+import { notify } from '../utils/alerts';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 
@@ -69,6 +71,29 @@ function RootNavigator() {
     return () => listener.subscription.unsubscribe();
   }, []);
 
+  // Demo mode: an anonymous user ("Try the demo") whose sample data hasn't
+  // been created yet. Derived from the session on every render — once
+  // seedDemoData sets demo_seeded, its updateUser call fires the auth
+  // listener above with the updated user and this flips to false.
+  const needsDemoSeed =
+    !!session?.user.is_anonymous && !session.user.user_metadata?.demo_seeded;
+  const demoUserId = needsDemoSeed ? session?.user.id : undefined;
+
+  // Which user id seeding has already started for, so a re-render (or the
+  // session object changing for the same user) can't seed twice.
+  const seededFor = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!demoUserId || seededFor.current === demoUserId) return;
+    seededFor.current = demoUserId;
+    seedDemoData(demoUserId).catch(e => {
+      console.warn('Demo seeding failed:', e);
+      notify('Demo setup failed', 'Could not load the sample data. Please try again.');
+      // Back to the login screen rather than leaving an empty demo account.
+      supabase.auth.signOut();
+    });
+  }, [demoUserId]);
+
   // Separate from the auth-tracking effect above so notification setup
   // stays independent of session-state bookkeeping. Only runs once a
   // session actually exists (not on the signed-out or not-yet-resolved
@@ -76,9 +101,11 @@ function RootNavigator() {
   // After setup, it also sweeps every incomplete assignment and reschedules
   // its reminders (see the self-heal comment below). Skipped entirely on web,
   // where notifications are a deliberate no-op (CLAUDE.md gotcha #10) — this
-  // avoids two pointless Supabase queries on every web page load.
+  // avoids two pointless Supabase queries on every web page load. Also waits
+  // while demo data is being seeded; it re-runs once seeding updates the
+  // session, which is how the bulk-inserted demo assignments get reminders.
   useEffect(() => {
-    if (!session || Platform.OS === 'web') return;
+    if (!session || needsDemoSeed || Platform.OS === 'web') return;
     (async () => {
       try {
         await setupNotifications();
@@ -123,10 +150,11 @@ function RootNavigator() {
         console.warn('Reminder backfill skipped:', e);
       }
     })();
-  }, [session]);
+  }, [session, needsDemoSeed]);
 
-  // Also wait for the saved theme choice, so a saved "Dark" never flashes light.
-  if (session === undefined || !ready) {
+  // Also wait for the saved theme choice, so a saved "Dark" never flashes
+  // light, and for demo seeding, so the tabs never mount on an empty account.
+  if (session === undefined || !ready || needsDemoSeed) {
     return (
       <View style={styles.loading}>
         <ActivityIndicator color={colors.text} size="large" />
