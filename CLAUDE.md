@@ -4,8 +4,7 @@ A personal college organization app for tracking courses, assignments, due
 dates, and priorities. Built with Expo (React Native) with web support, so it
 runs on iOS, Android, and in a browser.
 
-**Owner:** Cauan Siqueira — CS student at SIUE. Comfortable with Python,
-newer to React Native/JavaScript. Learning as the project is built.
+**Owner:** Cauan Siqueira — CS student at SIUE.
 
 ---
 
@@ -89,11 +88,11 @@ storage/storage.ts         ALL data reads/writes. Every screen goes through this
                            file — queries Supabase, scoped to the logged-in user.
 types/index.ts             Course, Assignment, and Category type definitions
 constants/theme.ts         All colors and fonts, defined once
+context/ThemeContext.tsx   Theme provider — System/Light/Dark saved per device
 utils/dates.ts             parseLocalDate() — the ONLY correct way to parse dates
 utils/alerts.ts            notify() / confirmDestructive() — cross-platform alerts
 utils/grades.ts            Grade math — percentage/letter-grade calculation,
                            weighted category averaging
-lib/supabase.ts            Supabase client (note: filename is misspelled)
 lib/notifications.ts       Due-date reminder scheduling via expo-notifications
                            (mobile only — no-ops on web, see gotcha #10)
 lib/demo.ts                seedDemoData() — sample courses/assignments for
@@ -278,15 +277,7 @@ policies scoping every row to `auth.uid() = user_id`.
 
 ---
 
-## Roadmap (in order)
+## What's next
 
-1. ~~Clickable "High priority" section~~ — done
-2. ~~Show priority in the checklist~~ — done
-3. ~~Scrollable checklist~~ — done
-4. ~~Dim completed assignments on the calendar (lighter course color)~~ — done
-5. ~~Calendar event preview popup (Google Calendar style)~~ — done
-6. ~~Login/signup screens (Supabase Auth)~~ — done
-7. ~~Migrate `storage.ts` to Supabase (add `user_id` + RLS + `grade` column)~~ — done
-8. ~~Grades page (per-assignment grades, computed course averages)~~ — done
-9. ~~Due-date notifications (3 days / 1 day before)~~ — done
-10. Full visual redesign pass (do this LAST, once all screens exist)
+- Unit tests for the grade math in `utils/grades.ts`
+- A standalone mobile build (EAS) so the app runs without the dev server
