@@ -145,14 +145,17 @@ export default function HomeScreen() {
           {overdue.map(item => {
             const course = getCourse(item.courseId);
             return (
-              <View
+              // Same tap behavior as the "Due this week" / "High priority" cards
+              <Pressable
                 key={item.id}
-                style={[
+                onPress={() => router.push('/assignments')}
+                style={({ pressed }) => [
                   styles.card,
                   {
                     backgroundColor: tintColor(course?.color ?? colors.muted, scheme),
                     borderLeftColor: course?.color ?? colors.muted,
                   },
+                  pressed && styles.pressedCard,
                 ]}
               >
                 <View style={styles.cardContent}>
@@ -163,7 +166,7 @@ export default function HomeScreen() {
                   <Text style={styles.dueBadgeUrgent}>{daysOverdueLabel(item.dueDate)}</Text>
                   <View style={[styles.priorityDot, { backgroundColor: PRIORITY_COLORS[item.priority] }]} />
                 </View>
-              </View>
+              </Pressable>
             );
           })}
         </View>

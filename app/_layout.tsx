@@ -164,8 +164,10 @@ function RootNavigator() {
 
   return (
     <NavigationThemeProvider value={navTheme}>
-      {/* Light status-bar text on the dark theme, dark text on light */}
-      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
+      {/* Signed in: the navy header (both themes) sits under the status bar,
+          so icons are always light. Signed out: the auth screen's background
+          follows the theme, so the icons do too. */}
+      <StatusBar style={session ? 'light' : scheme === 'dark' ? 'light' : 'dark'} />
       <Stack>
         {/* Signed in — the tabs group and anything it can navigate to */}
         <Stack.Protected guard={!!session}>

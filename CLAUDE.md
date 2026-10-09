@@ -56,6 +56,7 @@ npx expo export -p web  # production web build (also runs the Node pre-render st
 
 ```
 app/                       Every screen (Expo Router: folder names = routes)
+  +html.tsx                Web-only HTML shell (viewport/safe-area meta) — gotcha #11
   _layout.tsx              Root layout — tracks the Supabase session and gates
                            (tabs)/course vs (auth) with Stack.Protected
   (auth)/
@@ -176,6 +177,17 @@ a bug. Each reminder uses a deterministic identifier
 what's scheduled — but this also means the app assumes it's the only thing
 scheduling local notifications; a future feature that schedules its own
 notifications must use different identifiers or it'll collide with these.
+
+### 11. `app/+html.tsx` exists for iPhone safe areas — don't delete it
+Without it, Expo's default HTML has no `viewport-fit=cover`, so on iPhone
+`env(safe-area-inset-*)` reports 0 and the web tab bar was clipped by the home
+indicator / Safari's bottom toolbar (native was fine). `+html.tsx` sets
+`viewport-fit=cover` (react-native-safe-area-context then reports real insets,
+so the tab bar and headers pad themselves — no manual padding needed), fills
+the visible viewport with `100dvh`, and adds the "Add to Home Screen" meta
+tags (`black-translucent` status bar, safe because headers pad by the top
+inset). It only runs in Node during `expo export`, so it must never import
+the Supabase client, the theme context, or anything touching `window`.
 
 ---
 
