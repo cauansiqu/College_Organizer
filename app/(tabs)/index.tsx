@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { useFocusEffect, router } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { getAssignments, getCourses } from '../../storage/storage';
-import { parseLocalDate } from '@/utils/dates';
+import { parseLocalDate, daysUntil } from '@/utils/dates';
 import { Assignment, Course } from '../../types';
 import { fonts, priorityColors, tintColor, type ThemeColors } from '../../constants/theme';
 import { useTheme, type ThemeMode } from '../../context/ThemeContext';
@@ -67,11 +67,6 @@ export default function HomeScreen() {
 
   // High priority incomplete assignments
   const highPriority = incomplete.filter(a => a.priority === 'High');
-
-  function daysUntil(dateStr: string) {
-    const due = new Date(dateStr);
-    return Math.round((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-  }
 
   function dueDateLabel(dateStr: string) {
     const d = daysUntil(dateStr);

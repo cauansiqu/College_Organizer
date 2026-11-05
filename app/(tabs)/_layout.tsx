@@ -30,6 +30,16 @@ export default function Layout() {
         }}
       />
       <Tabs.Screen
+        name="plan"
+        options={{
+          title: 'Plan',
+          tabBarLabel: 'Plan',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialIcons name="event-note" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="courses"
         options={{
           title: 'Courses',
