@@ -150,10 +150,15 @@ dashboard with nothing checked into git, which let this file's schema block
 silently drift from reality (discovered and fixed when migrating `storage.ts`
 to Supabase — see `supabase/migrations/`). Every schema change from here on
 must go through a new migration file (imperative style: hand-authored
-`<timestamp>_description.sql`, run manually via the Supabase SQL editor —
-there's no local Supabase instance or linked CLI project). **Never make a
-schema change only in the dashboard** — that's exactly how the drift
-happened the first time. The schema block below is a summary; the migrations
+`<timestamp>_description.sql` — there's no local Supabase instance or linked
+CLI project). Apply it with the Supabase MCP's `apply_migration`, which
+records it in the database's migration history (`list_migrations`). That
+tool stamps its own version (the time it ran), so **after applying, rename
+the file so its timestamp matches the recorded version** — otherwise the
+repo and the database history disagree. (The two 2026-09-10 migrations
+predate this and were run by hand in the SQL editor, so they don't appear in
+the recorded history.) **Never make a schema change only in the dashboard**
+— that's exactly how the drift happened the first time. The schema block below is a summary; the migrations
 folder is the source of truth.
 
 ### 9. CI pins Node 24 — don't relax it back to a default version
@@ -241,7 +246,8 @@ create table courses (
   grade_a_min numeric not null default 90,
   grade_b_min numeric not null default 80,
   grade_c_min numeric not null default 70,
-  grade_d_min numeric not null default 60
+  grade_d_min numeric not null default 60,
+  code text                                   -- e.g. 'CS 330'
 );
 
 create table assignments (
@@ -255,7 +261,11 @@ create table assignments (
   user_id uuid not null references auth.users(id) on delete cascade,
   points_earned numeric,
   points_possible numeric,
-  category_id uuid references categories(id) on delete set null
+  category_id uuid references categories(id) on delete set null,
+  source text not null default 'manual',      -- manual|moodle|blackboard|syllabus
+  external_id text,                           -- feed id; unique per (user_id, external_id)
+  due_at timestamptz,                         -- exact due time; due_date stays the app's date
+  item_type text                              -- exam|project|quiz|hw|reading|post|lab|other
 );
 
 create table categories (
@@ -265,6 +275,46 @@ create table categories (
   weight numeric,
   user_id uuid not null references auth.users(id) on delete cascade
 );
+
+-- Semester Planner tables (schema only so far; no app code uses them yet)
+create table plan_tasks (       -- day-by-day plan
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  course_id uuid references courses(id) on delete set null,
+  assignment_id uuid references assignments(id) on delete set null,
+  plan_date date not null,
+  title text not null,
+  note text,
+  sort_order int not null default 0,
+  rolled_count int not null default 0,
+  completed boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+create table work_shifts (      -- synced work schedule; unique (user_id, external_id)
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  external_id text,
+  title text not null,
+  starts_at timestamptz not null,
+  ends_at timestamptz not null,
+  source text not null default 'sling'
+);
+
+create table planner_changes (  -- activity log
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  happened_at timestamptz not null default now(),
+  kind text not null,           -- added|moved|removed|shift|info|syllabus
+  message text not null
+);
+
+create table planner_meta (     -- one row per user
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  coursework_synced_at timestamptz,
+  sling_synced_at timestamptz,
+  plan_made_at timestamptz
+);
 ```
 
 `assignments.course_id on delete set null` is deliberate: deleting a course
@@ -272,7 +322,7 @@ must NOT delete its assignments (the app's own confirmation dialog promises
 this). `categories.course_id on delete cascade` is the opposite on purpose —
 a category has no meaning without its course.
 
-RLS is enabled on all three tables, with `select`/`insert`/`update`/`delete`
+RLS is enabled on all seven tables, with `select`/`insert`/`update`/`delete`
 policies scoping every row to `auth.uid() = user_id`.
 
 ---
