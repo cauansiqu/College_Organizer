@@ -4,6 +4,7 @@ import { Assignment, Course } from '../types';
 import { fonts, priorityColors, tintColor, tintTextColor, type ThemeColors } from '../constants/theme';
 import { useTheme } from '../context/ThemeContext';
 import { formatDisplayDate, dueLabel } from '../utils/dates';
+import { syncLabel } from '../utils/sync';
 
 type Props = {
   visible: boolean;
@@ -53,6 +54,8 @@ export default function AssignmentDetailModal({
                 <View style={styles.headerText}>
                   <Text style={styles.headerTitle}>{shown.title}</Text>
                   <Text style={styles.headerCourse}>{shownCourse?.name ?? 'Unknown course'}</Text>
+                  {/* null for manual assignments, so nothing renders */}
+                  {syncLabel(shown) && <Text style={styles.headerSync}>{syncLabel(shown)}</Text>}
                 </View>
                 <TouchableOpacity onPress={onClose} hitSlop={8}>
                   <Text style={styles.closeIcon}>✕</Text>
@@ -135,6 +138,7 @@ const makeStyles = (colors: ThemeColors) => StyleSheet.create({
   headerText: { flex: 1 },
   headerTitle: { fontSize: 19, fontFamily: fonts.display, color: colors.headerText },
   headerCourse: { fontSize: 12, color: 'rgba(247,244,236,0.7)', marginTop: 2 },
+  headerSync: { fontSize: 11, color: 'rgba(247,244,236,0.6)', fontStyle: 'italic' as const, marginTop: 2 },
   closeIcon: { fontSize: 18, color: colors.headerText },
   content: { padding: 24, paddingBottom: 40 },
   badges: { flexDirection: 'row', gap: 8, marginBottom: 16 },

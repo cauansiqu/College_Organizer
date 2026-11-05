@@ -6,6 +6,8 @@ import { Assignment, Category, Course } from '../types';
 import { fonts, priorityColors, type ThemeColors } from '../constants/theme';
 import { useTheme } from '../context/ThemeContext';
 import { getAssignmentPercentage } from '../utils/grades';
+import { formatDisplayDate } from '../utils/dates';
+import { isSynced, syncLabel } from '../utils/sync';
 
 const PRIORITIES = ['Low', 'Medium', 'High'] as const;
 
@@ -85,6 +87,13 @@ export default function AssignmentFormModal({
 
   const saveColor = accentColor ?? colors.primary;
 
+  // Synced assignments: title, due date and course are owned by the feed, so
+  // they're shown as plain text. The pre-filled values still go back through
+  // onSave unchanged. Priority, notes, points and category stay editable.
+  const locked = !!editing && isSynced(editing);
+  const lockedNote = editing ? syncLabel(editing) : null;
+  const lockedCourseName = courses?.find((c) => c.id === courseId)?.name ?? 'Unknown course';
+
   // Categories belong to a course, so recompute which ones are valid options
   // every render from the currently-selected course rather than syncing via
   // an effect. If `categoryId` references a category from a course the user
@@ -104,7 +113,9 @@ export default function AssignmentFormModal({
   function handleSave() {
     if (!title.trim()) { notify('Missing info', 'Please enter a title.'); return; }
     if (!dueDate.trim()) { notify('Missing info', 'Please pick a due date.'); return; }
-    if (courses && !courseId) { notify('Missing info', 'Please add a course first.'); return; }
+    // Skipped when locked: a synced item the feed couldn't match to a course
+    // has no courseId, and the user can't pick one here anyway.
+    if (courses && !courseId && !locked) { notify('Missing info', 'Please add a course first.'); return; }
 
     const earnedText = pointsEarned.trim();
     const possibleText = pointsPossible.trim();
@@ -143,15 +154,29 @@ export default function AssignmentFormModal({
     <Modal visible={visible} animationType="slide" transparent>
       <View style={styles.modalOverlay}>
         <ScrollView contentContainerStyle={styles.modalBox}>
-          <Text style={styles.modalTitle}>{editing ? 'Edit Assignment' : 'Add Assignment'}</Text>
+          <Text style={[styles.modalTitle, locked && { marginBottom: 4 }]}>
+            {editing ? 'Edit Assignment' : 'Add Assignment'}
+          </Text>
+          {locked && lockedNote && <Text style={styles.syncNote}>{lockedNote}</Text>}
 
-          <TextInput
-            style={styles.input}
-            placeholder="Title (e.g. Chapter 5 Homework)"
-            value={title}
-            onChangeText={setTitle}
-          />
-          <DatePickerField label="Due date:" value={dueDate} onChange={setDueDate} />
+          {locked ? (
+            <>
+              <Text style={styles.label}>Title:</Text>
+              <Text style={styles.lockedValue}>{title}</Text>
+              <Text style={styles.label}>Due date:</Text>
+              <Text style={styles.lockedValue}>{dueDate ? formatDisplayDate(dueDate) : '—'}</Text>
+            </>
+          ) : (
+            <>
+              <TextInput
+                style={styles.input}
+                placeholder="Title (e.g. Chapter 5 Homework)"
+                value={title}
+                onChangeText={setTitle}
+              />
+              <DatePickerField label="Due date:" value={dueDate} onChange={setDueDate} />
+            </>
+          )}
           <TextInput
             style={[styles.input, { height: 80 }]}
             placeholder="Notes (optional)"
@@ -185,7 +210,15 @@ export default function AssignmentFormModal({
           {/* Only shown when the caller passes a course list (Assignments tab).
               On the Course Detail page, `courses` is left undefined, so this
               is skipped entirely and the course is just whichever page you're on. */}
-          {courses && (
+          {/* Synced: course is locked, since syncs match items to courses by
+              course code — moving it would be undone or duplicated next sync. */}
+          {courses && locked && (
+            <>
+              <Text style={styles.label}>Course:</Text>
+              <Text style={styles.lockedValue}>{lockedCourseName}</Text>
+            </>
+          )}
+          {courses && !locked && (
             <>
               <Text style={styles.label}>Course:</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
@@ -273,6 +306,8 @@ const makeStyles = (colors: ThemeColors) => StyleSheet.create({
   modalTitle: { fontSize: 19, fontFamily: fonts.display, marginBottom: 16, color: colors.slate },
   input: { borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 12, fontSize: 15, marginBottom: 12, backgroundColor: colors.card, color: colors.inputText },
   label: { fontSize: 13, color: colors.muted, marginBottom: 8 },
+  syncNote: { fontSize: 12, color: colors.muted, fontStyle: 'italic' as const, marginBottom: 16 },
+  lockedValue: { fontSize: 15, color: colors.slate, marginBottom: 12 },
   pointsRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
   pointsInput: { flex: 1, marginBottom: 0 },
   pointsSlash: { fontSize: 15, color: colors.muted },

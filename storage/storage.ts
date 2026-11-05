@@ -1,6 +1,8 @@
 import { supabase } from "../lib/supabase";
 import { cancelAssignmentReminders, scheduleAssignmentReminders } from "../lib/notifications";
-import { Course, Assignment, Category } from "../types";
+import {
+    Course, Assignment, Category, PlanTask, WorkShift, PlannerChange, PlannerMeta,
+} from "../types";
 
 // The DB uses snake_case columns; the app's types use camelCase. These
 // shapes describe what Supabase actually returns, and the map*FromRow
@@ -15,6 +17,7 @@ type CourseRow = {
     grade_b_min: number;
     grade_c_min: number;
     grade_d_min: number;
+    code: string | null;
 };
 
 type AssignmentRow = {
@@ -28,6 +31,10 @@ type AssignmentRow = {
     points_earned: number | null;
     points_possible: number | null;
     category_id: string | null;
+    source: NonNullable<Assignment["source"]>;
+    external_id: string | null;
+    due_at: string | null;
+    item_type: string | null;
 };
 
 type CategoryRow = {
@@ -35,6 +42,41 @@ type CategoryRow = {
     course_id: string | null;
     name: string;
     weight: number | null;
+};
+
+type PlanTaskRow = {
+    id: string;
+    course_id: string | null;
+    assignment_id: string | null;
+    plan_date: string;
+    title: string;
+    note: string | null;
+    sort_order: number;
+    rolled_count: number;
+    completed: boolean;
+    created_at: string;
+};
+
+type WorkShiftRow = {
+    id: string;
+    external_id: string | null;
+    title: string;
+    starts_at: string;
+    ends_at: string;
+    source: string;
+};
+
+type PlannerChangeRow = {
+    id: string;
+    happened_at: string;
+    kind: PlannerChange["kind"];
+    message: string;
+};
+
+type PlannerMetaRow = {
+    coursework_synced_at: string | null;
+    sling_synced_at: string | null;
+    plan_made_at: string | null;
 };
 
 function courseFromRow(row: CourseRow): Course {
@@ -47,6 +89,7 @@ function courseFromRow(row: CourseRow): Course {
         gradeBMin: row.grade_b_min,
         gradeCMin: row.grade_c_min,
         gradeDMin: row.grade_d_min,
+        code: row.code ?? null,
     };
 }
 
@@ -62,6 +105,10 @@ function assignmentFromRow(row: AssignmentRow): Assignment {
         pointsEarned: row.points_earned ?? null,
         pointsPossible: row.points_possible ?? null,
         categoryId: row.category_id ?? null,
+        source: row.source ?? "manual",
+        externalId: row.external_id ?? null,
+        dueAt: row.due_at ?? null,
+        itemType: row.item_type ?? null,
     };
 }
 
@@ -71,6 +118,49 @@ function categoryFromRow(row: CategoryRow): Category {
         courseId: row.course_id ?? "",
         name: row.name,
         weight: row.weight ?? null,
+    };
+}
+
+function planTaskFromRow(row: PlanTaskRow): PlanTask {
+    return {
+        id: row.id,
+        courseId: row.course_id ?? null,
+        assignmentId: row.assignment_id ?? null,
+        planDate: row.plan_date,
+        title: row.title,
+        note: row.note ?? null,
+        sortOrder: row.sort_order,
+        rolledCount: row.rolled_count,
+        completed: row.completed,
+        createdAt: row.created_at,
+    };
+}
+
+function workShiftFromRow(row: WorkShiftRow): WorkShift {
+    return {
+        id: row.id,
+        externalId: row.external_id ?? null,
+        title: row.title,
+        startsAt: row.starts_at,
+        endsAt: row.ends_at,
+        source: row.source,
+    };
+}
+
+function plannerChangeFromRow(row: PlannerChangeRow): PlannerChange {
+    return {
+        id: row.id,
+        happenedAt: row.happened_at,
+        kind: row.kind,
+        message: row.message,
+    };
+}
+
+function plannerMetaFromRow(row: PlannerMetaRow): PlannerMeta {
+    return {
+        courseworkSyncedAt: row.coursework_synced_at ?? null,
+        slingSyncedAt: row.sling_synced_at ?? null,
+        planMadeAt: row.plan_made_at ?? null,
     };
 }
 
@@ -280,4 +370,74 @@ export async function updateCategory(updated: Category): Promise<void> {
 export async function deleteCategory(id: string): Promise<void> {
     const { error } = await supabase.from("categories").delete().eq("id", id);
     if (error) throw error;
+}
+
+// --- PLANNER ---
+
+// Load the current user's plan tasks between two "YYYY-MM-DD" dates
+// (inclusive), in the order they should appear: by day, then sort_order.
+export async function getPlanTasks(fromDate: string, toDate: string): Promise<PlanTask[]> {
+    const userId = await currentUserId();
+    const { data, error } = await supabase
+        .from("plan_tasks")
+        .select("*")
+        .eq("user_id", userId)
+        .gte("plan_date", fromDate)
+        .lte("plan_date", toDate)
+        .order("plan_date", { ascending: true })
+        .order("sort_order", { ascending: true });
+    if (error) throw error;
+    return (data ?? []).map(planTaskFromRow);
+}
+
+// Mark a plan task done/not done. RLS limits this to the user's own rows.
+export async function setPlanTaskCompleted(id: string, completed: boolean): Promise<void> {
+    const { error } = await supabase
+        .from("plan_tasks")
+        .update({ completed })
+        .eq("id", id);
+    if (error) throw error;
+}
+
+// Load the current user's work shifts that OVERLAP [fromISO, toISO) — not
+// just ones that start inside it — so a shift crossing midnight still shows
+// up on the day it ends.
+export async function getWorkShifts(fromISO: string, toISO: string): Promise<WorkShift[]> {
+    const userId = await currentUserId();
+    const { data, error } = await supabase
+        .from("work_shifts")
+        .select("*")
+        .eq("user_id", userId)
+        .gt("ends_at", fromISO)
+        .lt("starts_at", toISO)
+        .order("starts_at", { ascending: true });
+    if (error) throw error;
+    return (data ?? []).map(workShiftFromRow);
+}
+
+// Load the most recent planner activity-log entries, newest first
+export async function getPlannerChanges(limit = 30): Promise<PlannerChange[]> {
+    const userId = await currentUserId();
+    const { data, error } = await supabase
+        .from("planner_changes")
+        .select("*")
+        .eq("user_id", userId)
+        .order("happened_at", { ascending: false })
+        .limit(limit);
+    if (error) throw error;
+    return (data ?? []).map(plannerChangeFromRow);
+}
+
+// Load the user's last-sync/plan timestamps. Returns null if the user has
+// never synced (no row yet) — maybeSingle() instead of single(), which
+// would throw on zero rows.
+export async function getPlannerMeta(): Promise<PlannerMeta | null> {
+    const userId = await currentUserId();
+    const { data, error } = await supabase
+        .from("planner_meta")
+        .select("*")
+        .eq("user_id", userId)
+        .maybeSingle();
+    if (error) throw error;
+    return data ? plannerMetaFromRow(data) : null;
 }
