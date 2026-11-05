@@ -1,9 +1,13 @@
 import { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions } from 'react-native';
-import { Assignment, Course } from '../types';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { Assignment, Course, WorkShift } from '../types';
 import { fonts, fadeColor, type ThemeColors } from '../constants/theme';
 import { useTheme } from '../context/ThemeContext';
 import { toLocalISODate } from '../utils/dates';
+import { groupByDay, localDayOf, shortShiftHours } from '../utils/plan';
+
+const MAX_CHIPS = 3; // per month-grid day; assignments + shifts share this limit
 
 const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
@@ -12,20 +16,20 @@ const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
 type Props = {
   assignments: Assignment[];
   courses: Course[];
+  shifts: WorkShift[];            // display-only; pass [] to hide them
+  month: Date;                    // 1st of the month shown in the grid
+  onChangeMonth: (next: Date) => void;
   onDayPress?: (dateISO: string) => void;
   onAssignmentPress?: (assignment: Assignment) => void;
 };
 
-export default function CalendarMonth({ assignments, courses, onDayPress, onAssignmentPress }: Props) {
+export default function CalendarMonth({
+  assignments, courses, shifts, month: cursor, onChangeMonth, onDayPress, onAssignmentPress,
+}: Props) {
   const { colors, scheme } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { width } = useWindowDimensions();
   const isNarrow = width < 700; // below this, a 7-col month grid gets too cramped
-
-  const [cursor, setCursor] = useState(() => {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), 1);
-  });
 
   // Narrow screens only: which view the user picked via the toggle.
   // Ignored on wide screens, which always show the month grid.
@@ -52,8 +56,13 @@ export default function CalendarMonth({ assignments, courses, onDayPress, onAssi
     return map;
   }, [assignments]);
 
+  // Shifts by the LOCAL day they start (a 01:00 UTC start is still the
+  // evening before in US time), same as the Plan tab.
+  const shiftsByDay = useMemo(() => groupByDay(shifts, s => localDayOf(s.startsAt)), [shifts]);
+
+  // The month now lives in the parent (it loads that month's shifts)
   function goMonth(delta: number) {
-    setCursor(prev => new Date(prev.getFullYear(), prev.getMonth() + delta, 1));
+    onChangeMonth(new Date(cursor.getFullYear(), cursor.getMonth() + delta, 1));
   }
 
   // Both views are built as JSX up front, then the single return at the
@@ -71,11 +80,12 @@ export default function CalendarMonth({ assignments, courses, onDayPress, onAssi
       {days.map(d => {
         const key = toLocalISODate(d);
         const items = byDay[key] ?? [];
+        const hasShift = (shiftsByDay.get(key) ?? []).length > 0;
         return (
           <TouchableOpacity
             key={key}
             style={styles.weekCell}
-            onPress={() => { if (items.length > 0) onDayPress?.(key); }}
+            onPress={() => { if (items.length > 0 || hasShift) onDayPress?.(key); }}
           >
             <Text style={styles.weekDayLabel}>{WEEKDAY_LABELS[d.getDay()]}</Text>
             <Text style={styles.weekDateNum}>{d.getDate()}</Text>
@@ -92,6 +102,8 @@ export default function CalendarMonth({ assignments, courses, onDayPress, onAssi
                 <Text style={styles.weekMore}>+{items.length - 1}</Text>
               </TouchableOpacity>
             )}
+            {/* Small bar under the dots = working that day */}
+            {hasShift && <View style={styles.weekShiftBar} />}
           </TouchableOpacity>
         );
       })}
@@ -136,15 +148,20 @@ export default function CalendarMonth({ assignments, courses, onDayPress, onAssi
           if (!d) return <View key={i} style={styles.dayCellEmpty} />;
           const key = toLocalISODate(d);
           const items = byDay[key] ?? [];
+          const dayShifts = shiftsByDay.get(key) ?? [];
+          // Assignments first, then shifts fill whatever room is left
+          const shownItems = items.slice(0, MAX_CHIPS);
+          const shownShifts = dayShifts.slice(0, MAX_CHIPS - shownItems.length);
+          const hidden = items.length + dayShifts.length - shownItems.length - shownShifts.length;
           const isToday = key === todayKey;
           return (
             <TouchableOpacity
               key={i}
               style={[styles.dayCell, isToday && styles.dayCellToday]}
-              onPress={() => { if (items.length > 0) onDayPress?.(key); }}
+              onPress={() => { if (items.length + dayShifts.length > 0) onDayPress?.(key); }}
             >
               <Text style={[styles.dayNum, isToday && styles.dayNumToday]}>{d.getDate()}</Text>
-              {items.slice(0, 3).map(a => (
+              {shownItems.map(a => (
                 <TouchableOpacity
                   key={a.id}
                   style={[styles.chip, { backgroundColor: chipColor(a) }]}
@@ -153,9 +170,17 @@ export default function CalendarMonth({ assignments, courses, onDayPress, onAssi
                   <Text style={[styles.chipText, a.completed && styles.chipTextDone]} numberOfLines={1}>{a.title}</Text>
                 </TouchableOpacity>
               ))}
-              {items.length > 3 && (
+              {/* Shift chips: outlined info colors + briefcase, so they never
+                  look like a course chip. Not tappable on their own. */}
+              {shownShifts.map(s => (
+                <View key={s.id} style={styles.shiftChip}>
+                  <Ionicons name="briefcase" size={8} color={colors.infoText} />
+                  <Text style={styles.shiftChipText} numberOfLines={1}>{shortShiftHours(s)}</Text>
+                </View>
+              ))}
+              {hidden > 0 && (
                 <TouchableOpacity onPress={() => onDayPress?.(key)} hitSlop={4}>
-                  <Text style={styles.moreLabel}>+{items.length - 3} more</Text>
+                  <Text style={styles.moreLabel}>+{hidden} more</Text>
                 </TouchableOpacity>
               )}
             </TouchableOpacity>
@@ -208,6 +233,13 @@ const makeStyles = (colors: ThemeColors) => StyleSheet.create({
   chipText: { fontSize: 9, color: '#fff' },
   chipTextDone: { color: colors.slate },
   moreLabel: { fontSize: 8, color: colors.muted },
+  shiftChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 2,
+    backgroundColor: colors.infoBg, borderWidth: 1, borderColor: colors.infoText,
+    borderRadius: 3, paddingHorizontal: 3, paddingVertical: 0, marginBottom: 1,
+  },
+  shiftChipText: { fontSize: 9, fontFamily: fonts.mono, color: colors.infoText, flexShrink: 1 },
+  weekShiftBar: { width: 14, height: 3, borderRadius: 2, backgroundColor: colors.infoText, marginTop: 3 },
   weekStrip: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8 },
   weekCell: { alignItems: 'center', backgroundColor: colors.card, borderRadius: 8, padding: 8, width: 44 },
   weekDayLabel: { fontFamily: fonts.mono, fontSize: 10, color: colors.muted },

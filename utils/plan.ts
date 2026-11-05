@@ -85,13 +85,25 @@ export function dueTimeLabel(a: Pick<Assignment, 'dueAt'>): string {
   return `DUE ${time} ${ampm}`;
 }
 
-// "7:00–11:00 PM", or "10:00 AM–2:00 PM" when the halves differ
-export function shiftTimeRange(s: Pick<WorkShift, 'startsAt' | 'endsAt'>): string {
-  const start = timeParts(new Date(s.startsAt), false);
-  const end = timeParts(new Date(s.endsAt), false);
+// "7:00–11:00 PM", or "10:00 AM–2:00 PM" when the halves differ.
+// compact drops ":00" ("11 AM–3 PM") for tighter spots like the day list.
+export function shiftTimeRange(s: Pick<WorkShift, 'startsAt' | 'endsAt'>, compact = false): string {
+  const start = timeParts(new Date(s.startsAt), compact);
+  const end = timeParts(new Date(s.endsAt), compact);
   return start.ampm === end.ampm
     ? `${start.time}–${end.time} ${end.ampm}`
     : `${start.time} ${start.ampm}–${end.time} ${end.ampm}`;
+}
+
+// Very short hours for calendar chips: "7–11p", "11a–3p", "7:30–11p".
+// The a/p suffix appears once when both ends share it.
+export function shortShiftHours(s: Pick<WorkShift, 'startsAt' | 'endsAt'>): string {
+  const start = timeParts(new Date(s.startsAt), true);
+  const end = timeParts(new Date(s.endsAt), true);
+  const suffix = (ampm: string) => (ampm === 'AM' ? 'a' : 'p');
+  return start.ampm === end.ampm
+    ? `${start.time}–${end.time}${suffix(end.ampm)}`
+    : `${start.time}${suffix(start.ampm)}–${end.time}${suffix(end.ampm)}`;
 }
 
 // "7:02 AM"

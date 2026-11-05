@@ -1,15 +1,18 @@
 import { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, Modal, useWindowDimensions } from 'react-native';
-import { Assignment, Course } from '../types';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { Assignment, Course, WorkShift } from '../types';
 import { fonts, priorityColors, tintColor, tintTextColor, fadeColor, type ThemeColors } from '../constants/theme';
 import { useTheme } from '../context/ThemeContext';
 import { formatDisplayDate, dueLabel } from '../utils/dates';
+import { localDayOf, shiftTimeRange } from '../utils/plan';
 
 type Props = {
   visible: boolean;
   date: string | null; // "YYYY-MM-DD" of the day being shown, or null when closed
   assignments: Assignment[]; // full list; this component filters down to `date` itself
   courses: Course[];
+  shifts: WorkShift[]; // full list (or [] when hidden); filtered to `date` by local start day
   onClose: () => void;
   onSelectAssignment: (assignment: Assignment) => void;
 };
@@ -17,7 +20,7 @@ type Props = {
 // Bottom-sheet listing every assignment due on the tapped calendar day —
 // this is also where "+N more" clipped-from-the-cell assignments become
 // reachable, since CalendarMonth only shows the first 1-2 per day.
-export default function DayListSheet({ visible, date, assignments, courses, onClose, onSelectAssignment }: Props) {
+export default function DayListSheet({ visible, date, assignments, courses, shifts, onClose, onSelectAssignment }: Props) {
   const { colors, scheme } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { width } = useWindowDimensions();
@@ -26,6 +29,7 @@ export default function DayListSheet({ visible, date, assignments, courses, onCl
   const getCourse = (courseId: string) => courses.find(c => c.id === courseId);
 
   const items = date ? assignments.filter(a => a.dueDate.slice(0, 10) === date) : [];
+  const dayShifts = date ? shifts.filter(s => localDayOf(s.startsAt) === date) : [];
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
@@ -36,6 +40,7 @@ export default function DayListSheet({ visible, date, assignments, courses, onCl
               <Text style={styles.headerTitle}>{date ? formatDisplayDate(date) : ''}</Text>
               <Text style={styles.headerCount}>
                 {items.length} assignment{items.length === 1 ? '' : 's'} due
+                {dayShifts.length > 0 && ` · ${dayShifts.length} shift${dayShifts.length === 1 ? '' : 's'}`}
               </Text>
             </View>
             <TouchableOpacity onPress={onClose} hitSlop={8}>
@@ -47,7 +52,8 @@ export default function DayListSheet({ visible, date, assignments, courses, onCl
             {items.length === 0 ? (
               // Reachable if the last item for this day is deleted while the
               // sheet is open — show an empty state rather than auto-closing.
-              <Text style={styles.emptyText}>No assignments due this day.</Text>
+              // Skipped on shift-only days, where the shift rows below say enough.
+              dayShifts.length === 0 && <Text style={styles.emptyText}>No assignments due this day.</Text>
             ) : (
               <FlatList
                 data={items}
@@ -102,6 +108,15 @@ export default function DayListSheet({ visible, date, assignments, courses, onCl
                 }}
               />
             )}
+
+            {/* Work shifts below the assignments. Display only — not tappable. */}
+            {dayShifts.map(s => (
+              <View key={s.id} style={styles.shiftRow}>
+                <Ionicons name="briefcase" size={14} color={colors.infoText} />
+                <Text style={styles.shiftTitle} numberOfLines={1}>Work · {s.title}</Text>
+                <Text style={styles.shiftBadge}>{shiftTimeRange(s, true)}</Text>
+              </View>
+            ))}
           </View>
         </View>
       </View>
@@ -158,4 +173,14 @@ const makeStyles = (colors: ThemeColors) => StyleSheet.create({
   priorityPill: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
   priorityPillText: { color: '#fff', fontSize: 11, fontWeight: '600' as const },
   completeIcon: { fontSize: 18, color: colors.success, marginLeft: 8 },
+  shiftRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: colors.infoBg, borderRadius: 10, padding: 10, marginBottom: 8,
+  },
+  shiftTitle: { flex: 1, fontSize: 14, color: colors.infoText, fontWeight: '500' as const },
+  shiftBadge: {
+    fontFamily: fonts.mono, fontSize: 10, color: colors.infoText,
+    borderWidth: 1, borderColor: colors.infoText, borderRadius: 4,
+    paddingHorizontal: 6, paddingVertical: 2,
+  },
 });

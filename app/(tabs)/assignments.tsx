@@ -1,9 +1,11 @@
-import { confirmDestructive } from "@/utils/alerts";
+import { confirmDestructive, notify } from "@/utils/alerts";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import {
   FlatList,
   StyleSheet,
+  Switch,
   Text,
   TouchableOpacity,
   useWindowDimensions,
@@ -22,12 +24,15 @@ import {
   getAssignments,
   getCategories,
   getCourses,
+  getWorkShifts,
   saveAssignment,
   toggleAssignment,
   updateAssignment,
 } from "../../storage/storage";
-import { Assignment, Category, Course } from "../../types";
-import { dueLabel } from "../../utils/dates";
+import { Assignment, Category, Course, WorkShift } from "../../types";
+import { dueLabel, parseLocalDate, toLocalISODate } from "../../utils/dates";
+import { addDays } from "../../utils/plan";
+import { useShowWorkShifts } from "../../lib/showWorkShifts";
 
 type SortMode = "date" | "priority";
 const PRIORITY_RANK: Record<string, number> = { High: 0, Medium: 1, Low: 2 };
@@ -54,6 +59,15 @@ export default function AssignmentsScreen() {
     null,
   );
 
+  // Calendar month lives here (not in CalendarMonth) so we know which
+  // month's work shifts to load.
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
+  const [shifts, setShifts] = useState<WorkShift[]>([]);
+  const [showShifts, setShowShifts] = useShowWorkShifts();
+
   async function loadData() {
     const [a, c, cat] = await Promise.all([getAssignments(), getCourses(), getCategories()]);
     setAssignments(a);
@@ -61,11 +75,40 @@ export default function AssignmentsScreen() {
     setCategories(cat);
   }
 
+  // Shift range covers the visible month AND the phone's 7-day strip, which
+  // can run into next month. "YYYY-MM-DD" strings compare correctly.
+  const todayIso = toLocalISODate(new Date());
+  const monthFrom = toLocalISODate(calendarMonth);
+  const monthTo = toLocalISODate(
+    new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1),
+  );
+  const shiftsFrom = monthFrom < todayIso ? monthFrom : todayIso;
+  const weekEnd = addDays(todayIso, 7);
+  const shiftsTo = monthTo > weekEnd ? monthTo : weekEnd;
+
+  // Kept separate from loadData so a shift error never blocks assignments —
+  // the calendar just shows assignments only.
+  const loadShifts = useCallback(async () => {
+    try {
+      setShifts(await getWorkShifts(
+        parseLocalDate(shiftsFrom).toISOString(),
+        parseLocalDate(shiftsTo).toISOString(),
+      ));
+    } catch (e) {
+      notify("Could not load work shifts", e instanceof Error ? e.message : String(e));
+    }
+  }, [shiftsFrom, shiftsTo]);
+
+  // Reload on focus; loadShifts also re-runs when the month changes
   useFocusEffect(
     useCallback(() => {
       loadData();
-    }, []),
+      loadShifts();
+    }, [loadShifts]),
   );
+
+  // Toggle off = hide shifts everywhere on this screen
+  const visibleShifts = showShifts ? shifts : [];
 
   function getCourse(courseId: string) {
     return courses.find((c) => c.id === courseId);
@@ -265,9 +308,23 @@ export default function AssignmentsScreen() {
 
   const calendar = (
     <View style={isWide ? styles.calendarPaneWide : undefined}>
+      {/* Per-device "Show work shifts" toggle (saved in AsyncStorage) */}
+      <View style={styles.shiftToggleRow}>
+        <Ionicons name="briefcase" size={14} color={colors.infoText} />
+        <Text style={styles.shiftToggleLabel}>Show work shifts</Text>
+        <Switch
+          value={showShifts}
+          onValueChange={setShowShifts}
+          trackColor={{ true: colors.infoText, false: colors.border }}
+          thumbColor={colors.card}
+        />
+      </View>
       <CalendarMonth
         assignments={assignments}
         courses={courses}
+        shifts={visibleShifts}
+        month={calendarMonth}
+        onChangeMonth={setCalendarMonth}
         onDayPress={openDayList}
         onAssignmentPress={openDetail}
       />
@@ -312,6 +369,7 @@ export default function AssignmentsScreen() {
         date={dayListDate}
         assignments={assignments}
         courses={courses}
+        shifts={visibleShifts}
         onClose={closeDayList}
         onSelectAssignment={openDetail}
       />
@@ -337,6 +395,8 @@ export default function AssignmentsScreen() {
 
 const makeStyles = (colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.paper },
+  shiftToggleRow: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 },
+  shiftToggleLabel: { flex: 1, fontSize: 13, color: colors.slate },
   splitRow: { flex: 1, flexDirection: "row", gap: 16, padding: 16 },
   stackedContainer: { flex: 1, padding: 16 },
   calendarPaneWide: { flex: 1.3 },
